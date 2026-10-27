@@ -17,6 +17,8 @@ const options = {
   outdir: "dist",
   chunkNames: "chunks/[name]-[hash]",
   minify: true,
+  // Lets Chrome's error messages point at the original src/ files and lines.
+  sourcemap: "linked",
   logLevel: "info",
 };
 

@@ -44,6 +44,11 @@ export class CanvasClient {
     let next = path;
     while (next) {
       const page = await this.request(next);
+      // A list endpoint can answer with an object instead (an error, or a course
+      // that hides the feature); say which URL did, rather than "not iterable".
+      if (!Array.isArray(page.data)) {
+        throw new CanvasError(`Canvas didn't return a list for ${next}`, 200);
+      }
       out.push(...page.data);
       next = page.next;
     }
