@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Syllabus Chat</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Syllabus Chat</h1>
+    <div class="topbar-actions">
+      <button id="new-chat" class="ghost" title="Start a new chat">New chat</button>
+      <button id="open-site" class="ghost icon" title="Open the full site in a tab" aria-label="Open the full site">⤢</button>
+      <button id="toggle-settings" class="ghost icon" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <section id="settings" class="card" hidden>
+    <label>Canvas URL
+      <input id="canvas-url" type="url" placeholder="https://utexas.instructure.com" autocomplete="off">
+    </label>
+    <label>Anthropic API key
+      <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off">
+    </label>
+    <label>Claude model
+      <select id="claude-model"></select>
+    </label>
+    <p class="hint">Get a key at console.anthropic.com. Usage is billed to your Anthropic account; Haiku costs a few cents per chat. The key is stored only in this browser and sent only to api.anthropic.com.</p>
+    <div class="row">
+      <button id="save-settings">Save</button>
+      <span id="settings-status" class="hint"></span>
+    </div>
+    <fieldset class="course-toggles">
+      <legend>Courses to show</legend>
+      <p class="hint">Turned-off courses are hidden everywhere and skipped when syncing, finding exams and chatting. Changes save right away. To bring one back, turn it on and sync again.</p>
+      <p id="course-visibility-empty" class="hint">Sync from Canvas to list your courses here.</p>
+      <ul id="course-visibility"></ul>
+    </fieldset>
+  </section>
+
+  <details id="courses-panel" class="card" open>
+    <summary><span id="courses-summary">Courses</span></summary>
+    <div class="row">
+      <button id="sync">Sync syllabi from Canvas</button>
+      <span id="sync-status" class="hint"></span>
+    </div>
+    <div id="capture-banner" class="banner" hidden>
+      <p>Saved “<span id="capture-title"></span>” from Simple Syllabus. Which course is it for?</p>
+      <div class="row">
+        <select id="capture-course"></select>
+        <button id="capture-attach" class="small">Attach</button>
+        <button id="capture-discard" class="ghost small">Discard</button>
+      </div>
+    </div>
+    <ul id="course-list"></ul>
+  </details>
+
+  <main id="chat" aria-live="polite"></main>
+
+  <form id="composer">
+    <textarea id="question" rows="2" placeholder="Ask about your syllabi…"></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+
+  <input id="file-picker" type="file" accept=".pdf,.txt,application/pdf,text/plain" hidden>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

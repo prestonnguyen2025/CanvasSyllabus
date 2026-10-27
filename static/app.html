@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Syllabus Chat</title>
+  <link rel="icon" href="icons/icon48.png">
+  <link rel="stylesheet" href="sidepanel.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body class="site">
+  <header class="topbar">
+    <h1>Syllabus Chat</h1>
+    <nav class="nav">
+      <a href="#overview">Courses</a>
+      <a href="#deadlines">Deadlines</a>
+      <a href="#calendar">Exam calendar</a>
+      <a href="#chat">Chat</a>
+      <a href="#settings">Settings</a>
+    </nav>
+  </header>
+
+  <section id="view-overview" class="view page">
+    <div class="page-head">
+      <h2>Your courses</h2>
+      <div class="row">
+        <span id="sync-status" class="hint"></span>
+        <button id="sync">Sync from Canvas</button>
+      </div>
+    </div>
+    <p id="overview-empty" class="empty" hidden>No courses yet. Star your courses in Canvas, sign in to Canvas in another tab, then click “Sync from Canvas”.</p>
+    <div id="course-grid" class="course-grid"></div>
+  </section>
+
+  <section id="view-deadlines" class="view page" hidden>
+    <div class="page-head">
+      <h2>Upcoming deadlines</h2>
+      <select id="deadline-range" aria-label="Show deadlines within">
+        <option value="7">Next 7 days</option>
+        <option value="14" selected>Next 2 weeks</option>
+        <option value="30">Next 30 days</option>
+        <option value="">Everything upcoming</option>
+      </select>
+    </div>
+    <p id="deadlines-empty" class="empty" hidden></p>
+    <div id="deadline-list"></div>
+  </section>
+
+  <section id="view-calendar" class="view page" hidden>
+    <div class="page-head">
+      <h2>Exam calendar</h2>
+      <div class="row">
+        <span id="exam-status" class="hint"></span>
+        <button id="find-exams">Find exams in syllabi</button>
+      </div>
+    </div>
+    <p id="calendar-empty" class="empty" hidden></p>
+    <div id="calendar-body">
+      <div class="month-head">
+        <button id="month-prev" class="ghost icon" aria-label="Previous month">‹</button>
+        <h3 id="month-title"></h3>
+        <button id="month-next" class="ghost icon" aria-label="Next month">›</button>
+      </div>
+      <div id="month-grid" class="month-grid"></div>
+      <h3 class="section-title">Exam details</h3>
+      <div id="exam-list" class="exam-list"></div>
+    </div>
+  </section>
+
+  <section id="view-chat" class="view chat-view" hidden>
+    <div class="chat-head">
+      <span id="chat-scope" class="hint"></span>
+      <button id="new-chat" class="ghost small">New chat</button>
+    </div>
+    <main id="chat" aria-live="polite"></main>
+    <form id="composer">
+      <textarea id="question" rows="2" placeholder="Ask about your syllabi…"></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+  </section>
+
+  <section id="view-settings" class="view page" hidden>
+    <h2>Settings</h2>
+    <div class="card settings-card">
+      <label>Canvas URL
+        <input id="canvas-url" type="url" placeholder="https://utexas.instructure.com" autocomplete="off">
+      </label>
+      <label>Anthropic API key
+        <input id="api-key" type="password" placeholder="sk-ant-..." autocomplete="off">
+      </label>
+      <label>Claude model
+        <select id="claude-model"></select>
+      </label>
+      <p class="hint">Get a key at console.anthropic.com. Usage is billed to your Anthropic account; Haiku costs a few cents per chat. The key is stored only in this browser and sent only to api.anthropic.com.</p>
+      <div class="row">
+        <button id="save-settings">Save</button>
+        <span id="settings-status" class="hint"></span>
+      </div>
+      <fieldset class="course-toggles">
+        <legend>Courses to show</legend>
+        <p class="hint">Turned-off courses are hidden everywhere and skipped when syncing, finding exams and chatting. Changes save right away. To bring one back, turn it on and sync again.</p>
+        <p id="course-visibility-empty" class="hint">Sync from Canvas to list your courses here.</p>
+        <ul id="course-visibility"></ul>
+      </fieldset>
+    </div>
+  </section>
+
+  <input id="file-picker" type="file" accept=".pdf,.txt,application/pdf,text/plain" hidden>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
