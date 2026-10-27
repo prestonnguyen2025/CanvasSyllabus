@@ -90,7 +90,7 @@ export function createChat(state, { onMissingKey }) {
 
     $("chat").querySelector(".suggestions")?.remove();
     $("question").value = "";
-    autocomplete.close();
+    autocomplete.reset();
     addMessage("user", question);
     const reply = addMessage("assistant");
     reply.innerHTML = '<span class="thinking">Reading your syllabi…</span>';

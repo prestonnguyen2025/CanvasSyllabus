@@ -101,3 +101,9 @@ summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
 .course-suggest li.active { background: var(--user-bubble); }
 .course-suggest .code { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .course-suggest .suggest-hint { color: var(--muted); font-size: 11px; padding: 2px 8px; cursor: default; }
+
+/* Chat box text over a backdrop that draws boxes around filled-in course names. */
+.composer-field { position: relative; flex: 1; min-width: 0; display: flex; }
+.composer-field textarea { position: relative; z-index: 1; background: transparent; }
+.composer-backdrop { position: absolute; inset: 0; overflow: hidden; white-space: pre-wrap; overflow-wrap: break-word; color: transparent; background: var(--surface); border-style: solid; border-color: transparent; pointer-events: none; }
+.composer-backdrop .name-chip { color: transparent; background: var(--user-bubble); border-radius: 4px; box-shadow: 0 0 0 2px var(--user-bubble), 0 0 0 3px var(--accent); }
