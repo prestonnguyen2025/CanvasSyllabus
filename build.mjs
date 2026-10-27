@@ -8,8 +8,8 @@ mkdirSync("dist", { recursive: true });
 cpSync("static", "dist", { recursive: true });
 
 const options = {
-  // Both pages share the Anthropic SDK and chat code through a split-out chunk.
-  entryPoints: ["src/sidepanel.js", "src/app.js"],
+  // The pages share the Anthropic SDK and chat code through a split-out chunk.
+  entryPoints: ["src/sidepanel.js", "src/app.js", "src/grade-calculator.js"],
   bundle: true,
   splitting: true,
   format: "esm",

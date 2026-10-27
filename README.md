@@ -52,6 +52,22 @@ Click **⤢** in the side panel header to open the full site in a tab. It's a pa
 
 To add a view, add a `<section id="view-NAME">` and a nav link to `#NAME` in `static/app.html`, then add `NAME` to `VIEWS` in `src/app.js`.
 
+## Grade Calculator
+
+Click **Grade Calculator ↗** in the side panel (or in the full site's nav) to open it in a tab. It reads your grades straight from Canvas using your logged-in session — no token needed — and lets you try what-if scores:
+
+- Pick any course you're actively enrolled in (courses turned off in Settings are left out).
+- Graded assignments come in locked (🔒 From Canvas). Click **What-if** to try a different score; **Reset** restores the real one.
+- Ungraded assignments get a slider and a number box; hypothetical ones (like a final not yet in Canvas) can be added per group.
+- The results panel shows your current grade (graded work only), the projected grade from your what-ifs, the letter, and the change. **Set all remaining** fills every open assignment; **What do I need?** shows the score needed on one assignment for an A, B or C.
+- The math follows Canvas's own calculator: weighted groups (rescaled when some groups have no grades yet) or total points, drop lowest/highest (choosing the drops that help most, like Canvas does), never-drop, excused and "doesn't count" assignments. Missing work counts as 0 only once Canvas has recorded a 0. Grades your instructor hasn't posted are treated as ungraded.
+- Your calculated current grade is compared with the total Canvas reports, with a warning if they differ by more than 0.1 points.
+- Letters use the course's grading scheme when Canvas shares it with students, otherwise Canvas's standard scale.
+
+What-if scores are saved per course in this browser only. The page talks only to your Canvas site.
+
+Known limits: courses with grading periods may total differently than shown (the mismatch warning flags it); if your instructor hides course totals there's nothing to check against; a course that hides assignments from students can't be calculated.
+
 ## Privacy
 
 Syllabi and API keys are stored in `chrome.storage.local` on your machine. Canvas requests use your existing browser login. Syllabi and questions go only to `api.anthropic.com`.
@@ -67,6 +83,9 @@ Syllabi and API keys are stored in `chrome.storage.local` on your machine. Canva
 | `src/prompt.js` | System prompt and course labels |
 | `src/sidepanel.js` | Side panel UI |
 | `src/app.js` | Full site (`app.html`) UI and views |
+| `src/grade-calculator.js` | Grade Calculator page UI |
+| `src/grade-data.js` | Loads grades from Canvas for the calculator |
+| `src/grade-math.js` | Canvas-compatible grade math (weights, drops, letters, needed score) |
 | `src/exams.js` | Exam extraction for the calendar (structured JSON output) |
 | `src/chat-ui.js` | Chat box shared by both pages |
 | `src/settings-ui.js` | Settings form shared by both pages |

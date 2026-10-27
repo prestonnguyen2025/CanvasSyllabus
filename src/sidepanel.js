@@ -31,11 +31,13 @@ $("toggle-settings").addEventListener("click", () => {
   $("settings").hidden = !$("settings").hidden;
 });
 
-// Opens the full site, then closes the side panel since the site replaces it.
-$("open-site").addEventListener("click", async () => {
-  await chrome.tabs.create({ url: chrome.runtime.getURL("app.html") });
+// Opens a full-page tool in a tab, then closes the side panel since the tab replaces it.
+async function openPage(page) {
+  await chrome.tabs.create({ url: chrome.runtime.getURL(page) });
   window.close();
-});
+}
+$("open-site").addEventListener("click", () => openPage("app.html"));
+$("open-grades").addEventListener("click", () => openPage("grade-calculator.html"));
 
 // ---------- Courses ----------
 
