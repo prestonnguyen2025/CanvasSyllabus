@@ -94,3 +94,10 @@ summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
 #course-visibility { list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow-y: auto; }
 #course-visibility label { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 0; padding: 5px 0; cursor: pointer; overflow-wrap: anywhere; }
 #course-visibility input { width: auto; margin: 0; accent-color: var(--accent); }
+
+#composer { position: relative; }
+.course-suggest { position: absolute; left: 12px; right: 12px; bottom: calc(100% + 4px); z-index: 10; margin: 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.course-suggest li { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; overflow-wrap: anywhere; }
+.course-suggest li.active { background: var(--user-bubble); }
+.course-suggest .code { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.course-suggest .suggest-hint { color: var(--muted); font-size: 11px; padding: 2px 8px; cursor: default; }

@@ -1,3 +1,4 @@
+import { attachCourseAutocomplete } from "./autocomplete.js";
 import { newClaudeConversation, askClaude } from "./claude.js";
 import { renderMarkdown } from "./markdown.js";
 import { selectedCourses, visibleCourses } from "./storage.js";
@@ -61,6 +62,8 @@ export function createChat(state, { onMissingKey }) {
 
   $("new-chat").addEventListener("click", () => reset());
 
+  const autocomplete = attachCourseAutocomplete($("question"), () => visibleCourses(state));
+
   $("question").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -87,6 +90,7 @@ export function createChat(state, { onMissingKey }) {
 
     $("chat").querySelector(".suggestions")?.remove();
     $("question").value = "";
+    autocomplete.close();
     addMessage("user", question);
     const reply = addMessage("assistant");
     reply.innerHTML = '<span class="thinking">Reading your syllabi…</span>';
