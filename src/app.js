@@ -124,6 +124,7 @@ $("file-picker").addEventListener("change", async (event) => {
 
 const KIND_LABELS = { midterm: "Midterm", final: "Final", exam: "Exam" };
 let shownMonth = null; // first day of the month on screen
+let selectedExam = null; // key of the exam last clicked on the calendar
 
 // "2026-11-04" -> local midnight (new Date("2026-11-04") would be UTC).
 function parseDay(iso) {
@@ -226,13 +227,9 @@ function renderMonth(exams) {
     for (const exam of exams.filter((e) => e.day?.getTime() === date.getTime())) {
       const chip = el("button", `chip ${exam.kind}`, `${exam.course.code || exam.course.name} · ${exam.name}`);
       chip.title = `${exam.name} — ${exam.course.name}`;
-      chip.addEventListener("click", () => {
-        const card = $(exam.key);
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        card.classList.remove("flash");
-        void card.offsetWidth; // restart the highlight animation
-        card.classList.add("flash");
-      });
+      chip.dataset.exam = exam.key;
+      if (exam.key === selectedExam) chip.classList.add("selected");
+      chip.addEventListener("click", () => selectExam(exam.key));
       cell.append(chip);
     }
     grid.append(cell);
@@ -241,12 +238,27 @@ function renderMonth(exams) {
   for (let i = 0; i < trailing; i++) grid.append(el("div", "cell blank"));
 }
 
+// Highlights an exam's calendar label and details card (until another is
+// clicked) and scrolls the card into view.
+function selectExam(key) {
+  selectedExam = key;
+  for (const node of document.querySelectorAll("#month-grid .chip, #exam-list .exam-card")) {
+    node.classList.toggle("selected", (node.dataset.exam ?? node.id) === key);
+  }
+  const card = $(key);
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.remove("flash");
+  void card.offsetWidth; // restart the pulse animation
+  card.classList.add("flash");
+}
+
 function renderExamList(exams) {
   const today = new Date().setHours(0, 0, 0, 0);
   $("exam-list").replaceChildren(
     ...exams.map((exam) => {
       const card = el("article", `exam-card ${exam.kind}`);
       card.id = exam.key;
+      if (exam.key === selectedExam) card.classList.add("selected");
       if (exam.day && exam.day < today) card.classList.add("past");
 
       const head = el("div", "exam-head");
