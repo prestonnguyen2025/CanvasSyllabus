@@ -42,6 +42,28 @@
         <button id="find-exams">Find exams in syllabi</button>
       </div>
     </div>
+    <details class="add-exam">
+      <summary>Add an exam yourself</summary>
+      <form id="add-exam-form">
+        <div class="add-exam-grid">
+          <label>Course <select id="ae-course" required></select></label>
+          <label>Name <input id="ae-name" type="text" placeholder="Midterm 2" required></label>
+          <label>Type
+            <select id="ae-kind">
+              <option value="midterm">Midterm</option>
+              <option value="final">Final</option>
+              <option value="exam">Other exam</option>
+            </select>
+          </label>
+          <label>Date <input id="ae-date" type="date" required></label>
+          <label>Starts <input id="ae-start" type="time"></label>
+          <label>Ends <input id="ae-end" type="time"></label>
+          <label>Place <input id="ae-place" type="text" placeholder="Room and building"></label>
+          <label>Materials covered <input id="ae-materials" type="text" placeholder="Chapters 4–7"></label>
+        </div>
+        <button type="submit">Add exam</button>
+      </form>
+    </details>
     <p id="calendar-empty" class="empty" hidden></p>
     <div id="calendar-body">
       <div class="month-head">
@@ -75,6 +97,16 @@
       <div id="gc-calc" class="calc" hidden>
         <main class="groups-col">
           <div id="gc-course-notes"></div>
+          <div class="gc-weights">
+            <label>Weights from
+              <select id="gc-weight-source" aria-label="Weights from">
+                <option value="canvas">Canvas</option>
+                <option value="syllabus">Syllabus</option>
+              </select>
+            </label>
+            <button id="gc-read-weights" type="button" class="ghost">Read weights from syllabus</button>
+            <span id="gc-weights-status" class="hint"></span>
+          </div>
           <p class="legend">
             <span class="pill real">🔒 From Canvas</span>
             <span class="pill whatif">What-if</span>

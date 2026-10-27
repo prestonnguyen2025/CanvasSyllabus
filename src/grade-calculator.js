@@ -7,6 +7,7 @@ import { shortCourseName } from "./autocomplete.js";
 import { CanvasClient } from "./canvas.js";
 import { listGradeCourses, loadCourseGrades } from "./grade-data.js";
 import { computeGrade, letterFor, round2, scoreNeeded, targetsFor } from "./grade-math.js";
+import { findGradingWeights } from "./grade-weights.js";
 import * as storage from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
@@ -138,9 +139,14 @@ async function loadCourse(courseId) {
     return;
   }
   const saved = state.gradeWhatIfs[courseId];
-  plan = { overrides: { ...saved?.overrides }, hypotheticals: [...(saved?.hypotheticals ?? [])] };
+  plan = { overrides: { ...saved?.overrides }, hypotheticals: [...(saved?.hypotheticals ?? [])], weightSource: saved?.weightSource ?? "canvas" };
   // Forget what-ifs for groups that no longer exist.
   plan.hypotheticals = plan.hypotheticals.filter((h) => model.groups.some((g) => g.id === h.groupId));
+  // Canvas's weights are unusable when they're missing or every group has the same weight;
+  // then use the syllabus's weights if they've been read.
+  if (!saved?.weightSource && !canvasWeightsUsable(model) && state.gradeSyllabusWeights[courseId]?.byName) {
+    plan.weightSource = "syllabus";
+  }
 
   if (!model.groups.length) {
     showStatus("empty", "No assignments yet", `${name} doesn't have any assignments in Canvas yet.`);
@@ -156,13 +162,63 @@ async function loadCourse(courseId) {
 $("gc-course-select").addEventListener("change", (e) => loadCourse(e.target.value));
 $("gc-refresh").addEventListener("click", () => (model ? loadCourse(model.id) : start()));
 
+$("gc-weight-source").addEventListener("change", (e) => {
+  plan.weightSource = e.target.value;
+  savePlan();
+  renderAll();
+});
+
+$("gc-read-weights").addEventListener("click", async () => {
+  const button = $("gc-read-weights");
+  const status = $("gc-weights-status");
+  if (!state.apiKey) {
+    status.textContent = "Add your Anthropic API key in Settings first.";
+    return;
+  }
+  button.disabled = true;
+  status.textContent = "Reading the syllabus…";
+  const result = await findGradingWeights({
+    apiKey: state.apiKey,
+    course: state.courses.find((c) => String(c.id) === model.id),
+    canvasGroups: model.groups.map((g) => g.name),
+    model: state.claudeModel,
+  });
+  button.disabled = false;
+  if (result.error) {
+    status.textContent = result.error;
+    return;
+  }
+  state.gradeSyllabusWeights = { ...state.gradeSyllabusWeights, [model.id]: result };
+  storage.save({ gradeSyllabusWeights: state.gradeSyllabusWeights });
+  plan.weightSource = result.found ? "syllabus" : "canvas";
+  savePlan();
+  renderAll();
+});
+
 // ---------- The model with hypothetical assignments added ----------
 
+// True when Canvas's group weights can be used as they are: weighted, and not every group
+// at the same weight (a course that sets them all alike hasn't really weighted anything).
+function canvasWeightsUsable(m) {
+  const weights = m.groups.map((g) => g.weight);
+  if (!m.weighted || !weights.some((w) => w > 0)) return false;
+  return weights.length === 1 || new Set(weights).size > 1;
+}
+
+// The syllabus's weights by Canvas group name, when they're in use.
+function syllabusWeights() {
+  if (plan.weightSource !== "syllabus") return null;
+  return state.gradeSyllabusWeights[model.id]?.byName ?? null;
+}
+
 function fullModel() {
+  const byName = syllabusWeights();
   return {
     ...model,
+    weighted: byName ? true : model.weighted,
     groups: model.groups.map((g) => ({
       ...g,
+      weight: byName ? (byName[g.name] ?? 0) : g.weight,
       items: [
         ...g.items,
         ...plan.hypotheticals
@@ -207,20 +263,37 @@ function renderCourseNotes() {
 function renderAll() {
   const m = fullModel();
   rows.clear();
-  $("gc-groups").replaceChildren(...m.groups.map(renderGroup));
+  $("gc-groups").replaceChildren(...m.groups.map((g) => renderGroup(g, m.weighted)));
   $("gc-add-group").replaceChildren(...model.groups.map((g) => new Option(g.name, g.id)));
   $("gc-add-form").hidden = !model.groups.length;
   fillNeedSelect(m);
+  renderWeightControls();
   refresh();
 }
 
-function renderGroup(group) {
+function renderWeightControls() {
+  const syllabus = state.gradeSyllabusWeights[model.id];
+  $("gc-weight-source").value = plan.weightSource;
+  $("gc-weight-source").querySelector('option[value="syllabus"]').disabled = !syllabus?.byName;
+  const notes = [];
+  if (!syllabus) {
+    if (!canvasWeightsUsable(model)) notes.push("Canvas doesn't weight these groups. Read the syllabus to use its weights.");
+  } else if (!syllabus.found) {
+    notes.push("The syllabus doesn't list grade weights.");
+  } else if (syllabus.unmatched.length) {
+    const names = syllabus.unmatched.map((u) => `${u.name} (${round2(u.weight)}%)`).join(", ");
+    notes.push(`Not matched to a Canvas group, so not counted: ${names}.`);
+  }
+  $("gc-weights-status").textContent = notes.join(" ");
+}
+
+function renderGroup(group, weighted) {
   const card = el("section", "card group");
   const head = el("div", "group-head");
   const title = el("div");
   title.append(el("h2", null, group.name));
   const facts = [];
-  if (model.weighted) facts.push(`${round2(group.weight)}% of grade`);
+  if (weighted) facts.push(`${round2(group.weight)}% of grade`);
   if (group.rules.dropLowest) facts.push(`drops lowest ${group.rules.dropLowest}`);
   if (group.rules.dropHighest) facts.push(`drops highest ${group.rules.dropHighest}`);
   if (facts.length) title.append(el("div", "group-facts", facts.join(" · ")));
@@ -378,7 +451,7 @@ function refresh() {
 
   renderCanvasCheck(current.percent);
   $("gc-grading-mode").textContent = [
-    model.weighted ? "Weighted by assignment group." : "Based on total points.",
+    m.weighted ? (syllabusWeights() ? "Weighted by the syllabus." : "Weighted by assignment group.") : "Based on total points.",
     model.schemeSource === "course" ? "Letters use this course's grading scheme." : "Letters use a standard scale (A = 94%+), since the course's scheme isn't visible.",
   ].join(" ");
 
