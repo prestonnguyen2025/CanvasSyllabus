@@ -46,7 +46,6 @@ PDF and text files are read (PDFs go to Claude as native documents, so tables an
 Click **⤢** in the side panel header to open the full site in a tab. It's a page inside the extension (`app.html`), so it uses your Canvas login and the same saved courses as the side panel, and the two stay in sync. It has:
 
 - **Courses** — every synced course, whether a syllabus was found (add one with **+**), and whether it's included in the chat.
-- **Deadlines** — upcoming assignments across all courses, grouped by day, linking to Canvas. Sync once after updating so due dates are loaded.
 - **Exam calendar** — midterms, finals and other exams on a month calendar, each with its time, place and the material it covers. Click **Find exams in syllabi** to have Claude read each course's syllabus and Canvas assignments (one request per course, a few cents with Haiku). Re-scan after syncing or adding a syllabus.
 - **Chat** — the same chat as the side panel, with more room.
 - **Settings** — the same settings as the side panel, plus **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again.

@@ -163,8 +163,6 @@ export class CanvasClient {
     const total = groups.reduce((n, g) => n + (g.assignments?.length ?? 0), 0);
     if (!total) return null;
 
-    // Structured copy for the full site's Deadlines view; the AI reads the text.
-    const items = [];
     const weighted = course.apply_assignment_group_weights;
     const lines = [
       `Assignments listed on Canvas for this course (Assignments tab, synced ${new Date().toDateString()}).`,
@@ -186,10 +184,9 @@ export class CanvasClient {
         const kind = describeSubmissionTypes(a.submission_types);
         if (kind) parts.push(kind);
         lines.push(`- ${parts.join(" — ")}`);
-        items.push({ name: a.name, group: g.name, dueAt: a.due_at, points: a.points_possible, url: a.html_url });
       }
     }
-    return { kind: "text", title: `Canvas assignments (${total})`, text: lines.join("\n"), assignments: true, items };
+    return { kind: "text", title: `Canvas assignments (${total})`, text: lines.join("\n"), assignments: true };
   }
 
   async syllabusModuleItems(courseId) {

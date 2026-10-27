@@ -11,8 +11,7 @@ import { syncFromCanvas, openSimpleSyllabus, addSyllabusFile } from "./sync.js";
 import * as storage from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
-const VIEWS = ["overview", "deadlines", "calendar", "chat", "settings"];
-const DAY_MS = 24 * 60 * 60 * 1000;
+const VIEWS = ["overview", "calendar", "chat", "settings"];
 
 const state = await storage.load();
 let uploadTargetId = null;
@@ -120,71 +119,6 @@ $("file-picker").addEventListener("change", async (event) => {
   renderOverview();
   chat.reset(`Added ${file.name} to ${course.name} — started a new chat.`);
 });
-
-// ---------- Deadlines ----------
-
-function upcomingAssignments(days) {
-  const start = new Date().setHours(0, 0, 0, 0);
-  const end = days ? start + days * DAY_MS : Infinity;
-  return storage.visibleCourses(state)
-    .flatMap((course) =>
-      course.sources.flatMap((s) => s.items ?? []).map((item) => ({ ...item, course }))
-    )
-    .filter((a) => a.dueAt && Date.parse(a.dueAt) >= start && Date.parse(a.dueAt) < end)
-    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
-}
-
-function dayLabel(date) {
-  const diff = Math.round((new Date(date).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / DAY_MS);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-}
-
-function renderDeadlines() {
-  const days = Number($("deadline-range").value) || null;
-  const items = upcomingAssignments(days);
-  const hasData = storage.visibleCourses(state).some((c) => c.sources.some((s) => s.items));
-
-  const empty = $("deadlines-empty");
-  empty.hidden = items.length > 0;
-  empty.textContent = !storage.visibleCourses(state).length
-    ? "Sync your courses first."
-    : !hasData
-      ? "Sync from Canvas again to load due dates."
-      : "Nothing due in this window.";
-
-  const groups = new Map();
-  for (const a of items) {
-    const key = new Date(a.dueAt).toDateString();
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(a);
-  }
-
-  $("deadline-list").replaceChildren(
-    ...[...groups].map(([key, group]) => {
-      const day = el("section", "day");
-      day.append(el("h3", null, dayLabel(new Date(key))));
-      const list = el("ul");
-      for (const a of group) {
-        const li = el("li");
-        li.append(el("span", "time", new Date(a.dueAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })));
-        const info = el("div");
-        const link = el("a", null, a.name);
-        link.href = a.url;
-        link.target = "_blank";
-        link.rel = "noopener";
-        info.append(link, el("div", "sub", `${courseLabel(a.course)} · ${a.group}`));
-        li.append(info, el("span", "points", a.points != null ? `${a.points} pts` : ""));
-        list.append(li);
-      }
-      day.append(list);
-      return day;
-    })
-  );
-}
-
-$("deadline-range").addEventListener("change", renderDeadlines);
 
 // ---------- Exam calendar ----------
 
@@ -360,7 +294,6 @@ storage.onExternalChange(async (changes) => {
 
 function renderAll() {
   renderOverview();
-  renderDeadlines();
   renderCalendar();
   renderChatScope();
   renderCourseVisibility(state);
