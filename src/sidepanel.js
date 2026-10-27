@@ -26,6 +26,8 @@ mountSettings(state, {
   },
 });
 if (!state.apiKey) $("settings").hidden = false;
+// The course list starts collapsed, except before the first sync so the Sync button is visible.
+if (!state.courses.length) $("courses-panel").open = true;
 
 $("toggle-settings").addEventListener("click", () => {
   $("settings").hidden = !$("settings").hidden;

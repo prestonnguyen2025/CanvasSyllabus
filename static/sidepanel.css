@@ -62,7 +62,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .topbar h1 { font-size: 15px; margin: 0; }
 .topbar-actions { display: flex; gap: 6px; }
-.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px 0; }
+.tools { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 10px 12px 0; }
 .tools .tool { font-weight: 600; padding: 8px 10px; }
 
 .card { margin: 10px 12px 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
@@ -71,6 +71,7 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .hint { color: var(--muted); font-size: 12px; margin: 4px 0 8px; }
 summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+details:not([open]) > summary { margin-bottom: 0; }
 
 #course-list { list-style: none; padding: 0; margin: 8px 0 0; max-height: 34vh; overflow-y: auto; }
 #course-list li { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: start; padding: 6px 0; border-top: 1px solid var(--border); }
