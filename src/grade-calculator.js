@@ -1,5 +1,5 @@
-// The Grade Calculator page (grade-calculator.html). Loads the student's grades
-// from Canvas with their logged-in session, then lets them try what-if scores.
+// The Grade Calculator tab of the full site (app.html#grades). Loads the student's
+// grades from Canvas with their logged-in session, then lets them try what-if scores.
 // Nothing is sent anywhere but the student's own Canvas site; what-if scores
 // are saved in chrome.storage on this computer.
 
@@ -8,14 +8,12 @@ import { CanvasClient } from "./canvas.js";
 import { listGradeCourses, loadCourseGrades } from "./grade-data.js";
 import { computeGrade, letterFor, round2, scoreNeeded, targetsFor } from "./grade-math.js";
 import * as storage from "./storage.js";
-import { applyTheme } from "./theme.js";
 
 const $ = (id) => document.getElementById(id);
 const TOLERANCE = 0.1; // percentage points of difference from Canvas before warning
 
-const state = await storage.load();
-applyTheme(state.theme);
-const client = new CanvasClient(state.canvasUrl);
+let state = null; // the site's saved settings, passed in by showGradeCalculator
+let client = null;
 
 let courses = [];
 let model = null; // the loaded course (see grade-data.js)
@@ -47,8 +45,8 @@ const fmtPts = (x) => String(round2(x));
 // ---------- Loading, errors and empty states ----------
 
 function showStatus(kind, title, detail = "", actions = []) {
-  const box = $("status");
-  box.className = `status ${kind}`;
+  const box = $("gc-status");
+  box.className = `gc-status ${kind}`;
   box.hidden = false;
   const content = [el("h2", null, title)];
   if (detail) content.push(el("p", null, detail));
@@ -59,8 +57,8 @@ function showStatus(kind, title, detail = "", actions = []) {
     content.push(row);
   }
   box.replaceChildren(...content);
-  $("calc").hidden = true;
-  $("mini-results").hidden = true;
+  $("gc-calc").hidden = true;
+  $("gc-mini-results").hidden = true;
 }
 
 function button(text, onClick, className = "") {
@@ -100,6 +98,7 @@ async function hasCanvasAccess() {
 }
 
 async function start() {
+  client = new CanvasClient(state.canvasUrl);
   if (!(await hasCanvasAccess())) {
     const allow = button(`Allow access to ${new URL(state.canvasUrl).host}`, async () => {
       if (await chrome.permissions.request({ origins: [`${state.canvasUrl}/*`] })) start();
@@ -119,10 +118,10 @@ async function start() {
       "Canvas doesn't list any courses you're currently enrolled in as a student (courses turned off in Settings are left out).");
     return;
   }
-  const select = $("course-select");
+  const select = $("gc-course-select");
   select.replaceChildren(...courses.map((c) => new Option(shortCourseName(c.name), String(c.id))));
   select.disabled = false;
-  const wanted = new URLSearchParams(location.search).get("course") ?? state.gradeCourseId;
+  const wanted = state.gradeCourseId;
   select.value = courses.some((c) => String(c.id) === wanted) ? wanted : String(courses[0].id);
   loadCourse(select.value);
 }
@@ -147,15 +146,15 @@ async function loadCourse(courseId) {
     showStatus("empty", "No assignments yet", `${name} doesn't have any assignments in Canvas yet.`);
     return;
   }
-  $("status").hidden = true;
-  $("calc").hidden = false;
-  $("mini-results").hidden = false;
+  $("gc-status").hidden = true;
+  $("gc-calc").hidden = false;
+  $("gc-mini-results").hidden = false;
   renderCourseNotes();
   renderAll();
 }
 
-$("course-select").addEventListener("change", (e) => loadCourse(e.target.value));
-$("refresh").addEventListener("click", () => (model ? loadCourse(model.id) : start()));
+$("gc-course-select").addEventListener("change", (e) => loadCourse(e.target.value));
+$("gc-refresh").addEventListener("click", () => (model ? loadCourse(model.id) : start()));
 
 // ---------- The model with hypothetical assignments added ----------
 
@@ -202,15 +201,15 @@ function renderCourseNotes() {
   if (model.groups.some((g) => g.items.some((i) => i.status === "hidden"))) {
     notes.push("Some grades aren't posted yet. They're treated as ungraded until your instructor posts them.");
   }
-  $("course-notes").replaceChildren(...notes.map((n) => el("p", "notice-banner", n)));
+  $("gc-course-notes").replaceChildren(...notes.map((n) => el("p", "notice-banner", n)));
 }
 
 function renderAll() {
   const m = fullModel();
   rows.clear();
-  $("groups").replaceChildren(...m.groups.map(renderGroup));
-  $("add-group").replaceChildren(...model.groups.map((g) => new Option(g.name, g.id)));
-  $("add-form").hidden = !model.groups.length;
+  $("gc-groups").replaceChildren(...m.groups.map(renderGroup));
+  $("gc-add-group").replaceChildren(...model.groups.map((g) => new Option(g.name, g.id)));
+  $("gc-add-form").hidden = !model.groups.length;
   fillNeedSelect(m);
   refresh();
 }
@@ -360,14 +359,14 @@ function refresh() {
   const currentLetter = letterFor(current.percent, model.scheme);
   const projectedLetter = letterFor(projected.percent, model.scheme);
 
-  $("current-pct").textContent = fmtPct(current.percent);
-  $("current-letter").textContent = currentLetter ?? "";
-  $("projected-pct").textContent = fmtPct(projected.percent);
-  $("projected-letter").textContent = projectedLetter ?? "";
-  $("mini-current").textContent = `${fmtPct(current.percent)} ${currentLetter ?? ""}`;
-  $("mini-projected").textContent = `${fmtPct(projected.percent)} ${projectedLetter ?? ""}`;
+  $("gc-current-pct").textContent = fmtPct(current.percent);
+  $("gc-current-letter").textContent = currentLetter ?? "";
+  $("gc-projected-pct").textContent = fmtPct(projected.percent);
+  $("gc-projected-letter").textContent = projectedLetter ?? "";
+  $("gc-mini-current").textContent = `${fmtPct(current.percent)} ${currentLetter ?? ""}`;
+  $("gc-mini-projected").textContent = `${fmtPct(projected.percent)} ${projectedLetter ?? ""}`;
 
-  const delta = $("projected-delta");
+  const delta = $("gc-projected-delta");
   if (current.percent != null && projected.percent != null) {
     const d = round2(projected.percent - current.percent);
     delta.textContent = d === 0 ? "No change from current" : `${d > 0 ? "▲ +" : "▼ "}${d.toFixed(2)} from current`;
@@ -378,7 +377,7 @@ function refresh() {
   }
 
   renderCanvasCheck(current.percent);
-  $("grading-mode").textContent = [
+  $("gc-grading-mode").textContent = [
     model.weighted ? "Weighted by assignment group." : "Based on total points.",
     model.schemeSource === "course" ? "Letters use this course's grading scheme." : "Letters use a standard scale (A = 94%+), since the course's scheme isn't visible.",
   ].join(" ");
@@ -405,7 +404,7 @@ function refresh() {
 }
 
 function renderCanvasCheck(currentPercent) {
-  const check = $("canvas-check");
+  const check = $("gc-canvas-check");
   if (model.hideTotals) {
     check.className = "check muted";
     check.textContent = "Canvas hides this course's total, so there's nothing to compare against.";
@@ -430,7 +429,7 @@ function renderCanvasCheck(currentPercent) {
 // ---------- What do I need? ----------
 
 function fillNeedSelect(m) {
-  const select = $("need-item");
+  const select = $("gc-need-item");
   const previous = select.value;
   const open = m.groups.flatMap((g) => g.items.filter(isOpen));
   select.replaceChildren(...open.map((i) => new Option(`${i.name} (${fmtPts(i.pointsPossible)} pts)`, i.id)));
@@ -439,11 +438,11 @@ function fillNeedSelect(m) {
   select.disabled = !open.length;
 }
 
-$("need-item").addEventListener("change", () => renderNeed(fullModel()));
+$("gc-need-item").addEventListener("change", () => renderNeed(fullModel()));
 
 function renderNeed(m) {
-  const out = $("need-results");
-  const item = m.groups.flatMap((g) => g.items).find((i) => i.id === $("need-item").value);
+  const out = $("gc-need-results");
+  const item = m.groups.flatMap((g) => g.items).find((i) => i.id === $("gc-need-item").value);
   if (!item) {
     out.replaceChildren(el("p", "hint", "Everything is graded. Add a hypothetical assignment (like your final) to see what you'd need on it."));
     return;
@@ -477,8 +476,8 @@ function renderNeed(m) {
 
 // ---------- Set all / clear / add ----------
 
-$("set-all").addEventListener("click", () => {
-  const pct = Number($("set-all-pct").value);
+$("gc-set-all").addEventListener("click", () => {
+  const pct = Number($("gc-set-all-pct").value);
   if (!Number.isFinite(pct) || pct < 0) return;
   for (const item of fullModel().groups.flatMap((g) => g.items.filter(isOpen))) {
     plan.overrides[item.id] = round2((item.pointsPossible * pct) / 100);
@@ -487,25 +486,33 @@ $("set-all").addEventListener("click", () => {
   renderAll();
 });
 
-$("clear-whatifs").addEventListener("click", () => {
+$("gc-clear-whatifs").addEventListener("click", () => {
   plan.overrides = {};
   savePlan();
   renderAll();
 });
 
-$("add-form").addEventListener("submit", (e) => {
+$("gc-add-form").addEventListener("submit", (e) => {
   e.preventDefault();
-  const points = Number($("add-points").value);
-  const name = $("add-name").value.trim();
+  const points = Number($("gc-add-points").value);
+  const name = $("gc-add-name").value.trim();
   if (!name || !(points > 0)) return;
-  plan.hypotheticals.push({ id: `hypo-${Date.now()}`, name, groupId: $("add-group").value, pointsPossible: points });
+  plan.hypotheticals.push({ id: `hypo-${Date.now()}`, name, groupId: $("gc-add-group").value, pointsPossible: points });
   savePlan();
   renderAll();
 });
 
-// Theme changes made in Settings elsewhere apply here too.
-storage.onExternalChange(async (changes) => {
-  if (changes.theme) applyTheme(changes.theme.newValue);
-});
+let started = false;
 
-start();
+// Starts the calculator the first time its tab is shown, since it loads from Canvas.
+export function showGradeCalculator(appState) {
+  state = appState;
+  if (started) return;
+  started = true;
+  start();
+}
+
+// Reloads the course list, e.g. after courses are turned on or off in Settings.
+export function reloadGradeCalculator() {
+  if (started) start();
+}

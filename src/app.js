@@ -5,13 +5,14 @@
 
 import { createChat } from "./chat-ui.js";
 import { findExams } from "./exams.js";
+import { showGradeCalculator, reloadGradeCalculator } from "./grade-calculator.js";
 import { courseLabel, hasSyllabus } from "./prompt.js";
 import { mountSettings, fillSettings, renderCourseVisibility } from "./settings-ui.js";
 import { syncFromCanvas, openSimpleSyllabus, addSyllabusFile } from "./sync.js";
 import * as storage from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
-const VIEWS = ["overview", "calendar", "chat", "settings"];
+const VIEWS = ["overview", "calendar", "grades", "chat", "settings"];
 
 const state = await storage.load();
 let uploadTargetId = null;
@@ -21,6 +22,7 @@ mountSettings(state, {
   onModelChange: () => chat.reset("Switched AI model — started a new chat."),
   onCoursesChange: () => {
     renderAll();
+    reloadGradeCalculator();
     chat.reset("Course list changed — started a new chat.");
   },
 });
@@ -40,6 +42,7 @@ function showView() {
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
   for (const a of document.querySelectorAll(".nav a")) a.classList.toggle("active", a.hash === `#${view}`);
   if (view === "chat") $("question").focus();
+  if (view === "grades") showGradeCalculator(state);
 }
 
 window.addEventListener("hashchange", showView);
@@ -299,6 +302,7 @@ storage.onExternalChange(async (changes) => {
   Object.assign(state, await storage.load());
   fillSettings(state);
   renderAll();
+  if (changes.hiddenIds || changes.canvasUrl) reloadGradeCalculator();
   if (changes.courses || changes.selectedIds || changes.hiddenIds || changes.claudeModel) {
     chat.reset("Your courses or settings changed in the side panel — started a new chat.");
   }

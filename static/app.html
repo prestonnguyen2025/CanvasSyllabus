@@ -8,6 +8,7 @@
   <script src="theme.js"></script>
   <link rel="stylesheet" href="sidepanel.css">
   <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="grade-calculator.css">
 </head>
 <body class="site">
   <header class="topbar">
@@ -15,9 +16,9 @@
     <nav class="nav">
       <a href="#overview">Courses</a>
       <a href="#calendar">Exam calendar</a>
+      <a href="#grades">Grade Calculator</a>
       <a href="#chat">Chat</a>
       <a href="#settings">Settings</a>
-      <a href="grade-calculator.html" target="_blank" class="nav-tool">Grade Calculator ↗</a>
     </nav>
   </header>
 
@@ -51,6 +52,86 @@
       <div id="month-grid" class="month-grid"></div>
       <h3 class="section-title">Exam details</h3>
       <div id="exam-list" class="exam-list"></div>
+    </div>
+  </section>
+
+  <section id="view-grades" class="view" hidden>
+    <div class="gc-head">
+      <h2>Grade Calculator</h2>
+      <div class="picker">
+        <select id="gc-course-select" aria-label="Course" disabled></select>
+        <button id="gc-refresh" class="ghost" title="Reload grades from Canvas">Refresh</button>
+      </div>
+    </div>
+    <div class="scroll">
+      <section id="gc-status" class="gc-status" aria-live="polite"></section>
+
+      <!-- Small always-visible summary for narrow screens, where the results panel scrolls away. -->
+      <div id="gc-mini-results" class="mini-results" hidden>
+        <span>Current <strong id="gc-mini-current">—</strong></span>
+        <span>Projected <strong id="gc-mini-projected">—</strong></span>
+      </div>
+
+      <div id="gc-calc" class="calc" hidden>
+        <main class="groups-col">
+          <div id="gc-course-notes"></div>
+          <p class="legend">
+            <span class="pill real">🔒 From Canvas</span>
+            <span class="pill whatif">What-if</span>
+            <span class="pill hypo">Hypothetical</span>
+            <span class="hint">Move a slider or type a score to see how it changes your grade. Nothing here changes Canvas.</span>
+          </p>
+          <div id="gc-groups"></div>
+
+          <form id="gc-add-form" class="card add-card">
+            <h2>Add a hypothetical assignment</h2>
+            <p class="hint">For things that aren't in Canvas yet, like a final exam.</p>
+            <div class="add-row">
+              <label>Name <input id="gc-add-name" type="text" value="Final exam" required></label>
+              <label>Group <select id="gc-add-group"></select></label>
+              <label>Points <input id="gc-add-points" type="number" min="0.01" step="any" value="100" required></label>
+              <button type="submit">Add</button>
+            </div>
+          </form>
+        </main>
+
+        <aside class="results" aria-label="Results">
+          <div class="card result-card">
+            <div class="result-grid">
+              <div>
+                <div class="result-label">Current grade</div>
+                <div class="result-value"><span id="gc-current-pct">—</span> <span id="gc-current-letter" class="letter"></span></div>
+                <div class="hint">Graded work only</div>
+              </div>
+              <div>
+                <div class="result-label">Projected</div>
+                <div class="result-value whatif-text"><span id="gc-projected-pct">—</span> <span id="gc-projected-letter" class="letter"></span></div>
+                <div id="gc-projected-delta" class="delta"></div>
+              </div>
+            </div>
+            <p id="gc-canvas-check" class="check"></p>
+            <p id="gc-grading-mode" class="hint"></p>
+          </div>
+
+          <div class="card result-card">
+            <h3>Set all remaining</h3>
+            <div class="row">
+              <input id="gc-set-all-pct" type="number" min="0" max="200" step="any" value="85" aria-label="Percent for all remaining assignments">
+              <span>%</span>
+              <button id="gc-set-all" type="button">Apply</button>
+              <button id="gc-clear-whatifs" type="button" class="ghost">Clear what-ifs</button>
+            </div>
+            <p class="hint">Fills every ungraded and hypothetical assignment.</p>
+          </div>
+
+          <div class="card result-card">
+            <h3>What do I need?</h3>
+            <label class="need-label">On <select id="gc-need-item"></select></label>
+            <div id="gc-need-results"></div>
+            <p id="gc-need-note" class="hint">Holds your other what-if scores as they are; blank assignments aren't counted.</p>
+          </div>
+        </aside>
+      </div>
     </div>
   </section>
 

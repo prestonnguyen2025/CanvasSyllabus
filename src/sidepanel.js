@@ -37,7 +37,7 @@ async function openPage(page) {
   window.close();
 }
 $("open-site").addEventListener("click", () => openPage("app.html"));
-$("open-grades").addEventListener("click", () => openPage("grade-calculator.html"));
+$("open-grades").addEventListener("click", () => openPage("app.html#grades"));
 
 // ---------- Courses ----------
 

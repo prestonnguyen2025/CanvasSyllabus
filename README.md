@@ -43,10 +43,11 @@ PDF and text files are read (PDFs go to Claude as native documents, so tables an
 
 ## Full site
 
-Click **⤢** in the side panel header to open the full site in a tab. It's a page inside the extension (`app.html`), so it uses your Canvas login and the same saved courses as the side panel, and the two stay in sync. It has:
+Click **Open website ↗** in the side panel to open the full site in a tab. It's a page inside the extension (`app.html`), so it uses your Canvas login and the same saved courses as the side panel, and the two stay in sync. It has:
 
 - **Courses** — every synced course, whether a syllabus was found (add one with **+**), and whether it's included in the chat.
 - **Exam calendar** — midterms, finals and other exams on a month calendar, each with its time, place and the material it covers. Click **Find exams in syllabi** to have Claude read each course's syllabus and Canvas assignments (one request per course, a few cents with Haiku). Re-scan after syncing or adding a syllabus.
+- **Grade Calculator** — your Canvas grades with what-if scores (see below).
 - **Chat** — the same chat as the side panel, with more room.
 - **Settings** — the same settings as the side panel, plus **Appearance** (match your computer, light, or dark; applies to the side panel too) and **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again.
 
@@ -54,7 +55,7 @@ To add a view, add a `<section id="view-NAME">` and a nav link to `#NAME` in `st
 
 ## Grade Calculator
 
-Click **Grade Calculator ↗** in the side panel (or in the full site's nav) to open it in a tab. It reads your grades straight from Canvas using your logged-in session — no token needed — and lets you try what-if scores:
+It's the **Grade Calculator** tab of the website: open it from the website's nav, or click **Grade Calculator ↗** in the side panel to jump straight to it. It reads your grades straight from Canvas using your logged-in session — no token needed — and lets you try what-if scores:
 
 - Pick any course you're actively enrolled in (courses turned off in Settings are left out).
 - Graded assignments come in locked (🔒 From Canvas). Click **What-if** to try a different score; **Reset** restores the real one.
@@ -83,7 +84,7 @@ Syllabi and API keys are stored in `chrome.storage.local` on your machine. Canva
 | `src/prompt.js` | System prompt and course labels |
 | `src/sidepanel.js` | Side panel UI |
 | `src/app.js` | Full site (`app.html`) UI and views |
-| `src/grade-calculator.js` | Grade Calculator page UI |
+| `src/grade-calculator.js` | Grade Calculator tab of the site |
 | `src/grade-data.js` | Loads grades from Canvas for the calculator |
 | `src/grade-math.js` | Canvas-compatible grade math (weights, drops, letters, needed score) |
 | `src/exams.js` | Exam extraction for the calendar (structured JSON output) |
