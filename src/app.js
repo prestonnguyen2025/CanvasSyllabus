@@ -141,12 +141,48 @@ function formatTime(hhmm) {
   return new Date(2000, 0, 1, h, m || 0).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+// Exams found in the syllabi plus ones added by hand, for courses that are turned on.
 function allExams() {
-  return storage.visibleCourses(state)
-    .flatMap((course) => (state.exams[course.id]?.exams ?? []).map((exam, i) => ({
-      ...exam, course, day: parseDay(exam.date), key: `exam-${course.id}-${i}`,
-    })))
-    .sort((a, b) => (a.day ?? Infinity) - (b.day ?? Infinity));
+  const courses = storage.visibleCourses(state);
+  const found = courses.flatMap((course) => (state.exams[course.id]?.exams ?? []).map((exam, i) => ({
+    ...exam, course, day: parseDay(exam.date), key: `exam-${course.id}-${i}`,
+  })));
+  const manual = state.manualExams.flatMap((exam) => {
+    const course = courses.find((c) => c.id === exam.courseId);
+    return course ? [{ ...exam, course, day: parseDay(exam.date), key: `manual-${exam.id}`, manual: true }] : [];
+  });
+  return [...found, ...manual].sort((a, b) => (a.day ?? Infinity) - (b.day ?? Infinity));
+}
+
+$("add-exam-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const exam = {
+    id: crypto.randomUUID(),
+    courseId: $("ae-course").value,
+    name: $("ae-name").value.trim(),
+    kind: $("ae-kind").value,
+    date: $("ae-date").value,
+    startTime: $("ae-start").value,
+    endTime: $("ae-end").value,
+    place: $("ae-place").value.trim(),
+    materials: $("ae-materials").value.trim(),
+  };
+  if (!exam.courseId || !exam.name || !parseDay(exam.date)) return;
+  state.manualExams = [...state.manualExams, exam];
+  await storage.save({ manualExams: state.manualExams });
+  // Jump to the new exam's month and highlight it.
+  const day = parseDay(exam.date);
+  shownMonth = new Date(day.getFullYear(), day.getMonth(), 1);
+  selectedExam = `manual-${exam.id}`;
+  event.target.reset();
+  $("ae-course").value = exam.courseId; // keep the course for adding the next one
+  renderCalendar();
+});
+
+async function removeManualExam(id) {
+  state.manualExams = state.manualExams.filter((e) => e.id !== id);
+  await storage.save({ manualExams: state.manualExams });
+  renderCalendar();
 }
 
 $("find-exams").addEventListener("click", async () => {
@@ -179,7 +215,16 @@ function moveMonth(delta) {
   renderCalendar();
 }
 
+function fillAddExamCourses() {
+  const select = $("ae-course");
+  const previous = select.value;
+  const courses = storage.visibleCourses(state);
+  select.replaceChildren(...courses.map((c) => new Option(courseLabel(c), c.id)));
+  if (courses.some((c) => c.id === previous)) select.value = previous;
+}
+
 function renderCalendar() {
+  fillAddExamCourses();
   const exams = allExams();
   const scanned = Object.keys(state.exams).length > 0;
   const errors = storage.visibleCourses(state).filter((c) => state.exams[c.id]?.error);
@@ -197,8 +242,8 @@ function renderCalendar() {
   empty.textContent = !storage.visibleCourses(state).length
     ? "Sync your courses first."
     : !scanned
-      ? "Click “Find exams in syllabi” to have Claude list each course's midterms and finals. It takes about a minute and costs a few cents."
-      : "No exams were found in your syllabi.";
+      ? "Click “Find exams in syllabi” to have Claude list each course's midterms and finals. It takes about a minute and costs a few cents. Or add an exam yourself above."
+      : "No exams were found in your syllabi. You can add them yourself above.";
   if (!exams.length) return;
 
   if (!shownMonth) {
@@ -279,9 +324,17 @@ function renderExamList(exams) {
         : "";
       const facts = el("dl");
       for (const [label, value] of [["Time", time], ["Place", exam.place], ["Materials covered", exam.materials]]) {
-        facts.append(el("dt", null, label), el("dd", value ? null : "unknown", value || "Not listed in the syllabus"));
+        facts.append(el("dt", null, label), el("dd", value ? null : "unknown", value || (exam.manual ? "Not entered" : "Not listed in the syllabus")));
       }
       card.append(facts);
+      if (exam.manual) {
+        const actions = el("div", "exam-actions", "Added by you");
+        const remove = el("button", "ghost small", "Remove");
+        remove.type = "button";
+        remove.addEventListener("click", () => removeManualExam(exam.id));
+        actions.append(remove);
+        card.append(actions);
+      }
       return card;
     })
   );

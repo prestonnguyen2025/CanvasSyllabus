@@ -11,8 +11,10 @@ const DEFAULTS = {
   syncedAt: null,
   unassignedCapture: null, // a Simple Syllabus page not yet matched to a course
   exams: {}, // course id -> { exams, at, error? } found by the full site's calendar
+  manualExams: [], // [{ id, courseId, name, kind, date, ... }] added by hand; kept across re-scans
   gradeCourseId: null, // course last opened in the Grade Calculator
   gradeWhatIfs: {}, // course id -> { overrides, hypotheticals } from the Grade Calculator
+  gradeSyllabusWeights: {}, // course id -> { found, byName, unmatched, at } read from the syllabus
 };
 
 // Settings left over from the removed Gemini provider, including its API key.
