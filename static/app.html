@@ -82,7 +82,7 @@
       <h2>Grade Calculator</h2>
       <div class="picker">
         <select id="gc-course-select" aria-label="Course" disabled></select>
-        <button id="gc-refresh" class="ghost" title="Reload grades from Canvas">Refresh</button>
+        <button id="gc-refresh" class="ghost" title="Reload grades from Canvas and read the syllabus again">Refresh</button>
       </div>
     </div>
     <div class="scroll">
@@ -97,16 +97,6 @@
       <div id="gc-calc" class="calc" hidden>
         <main class="groups-col">
           <div id="gc-course-notes"></div>
-          <div class="gc-weights">
-            <label>Weights from
-              <select id="gc-weight-source" aria-label="Weights from">
-                <option value="canvas">Canvas</option>
-                <option value="syllabus">Syllabus</option>
-              </select>
-            </label>
-            <button id="gc-read-weights" type="button" class="ghost">Read weights from syllabus</button>
-            <span id="gc-weights-status" class="hint"></span>
-          </div>
           <p class="legend">
             <span class="pill real">🔒 From Canvas</span>
             <span class="pill whatif">What-if</span>
@@ -128,6 +118,20 @@
         </main>
 
         <aside class="results" aria-label="Results">
+          <div class="card result-card weights-card">
+            <h3>Grading breakdown <span id="gc-weights-source" class="pill open"></span></h3>
+            <div id="gc-weights-switch" class="seg" role="group" aria-label="Use weights from" hidden>
+              <button type="button" data-source="syllabus" aria-pressed="true">Syllabus</button>
+              <button type="button" data-source="canvas" aria-pressed="false">Canvas</button>
+            </div>
+            <table class="weights-table">
+              <tbody id="gc-weights-body"></tbody>
+              <tfoot>
+                <tr><td class="w-name">Total</td><td id="gc-weights-total" class="w-pct"></td></tr>
+              </tfoot>
+            </table>
+          </div>
+
           <div class="card result-card">
             <div class="result-grid">
               <div>
@@ -143,17 +147,16 @@
             </div>
             <p id="gc-canvas-check" class="check"></p>
             <p id="gc-grading-mode" class="hint"></p>
+            <div id="gc-drops-box" class="drops-box" hidden>
+              <button id="gc-drops-toggle" type="button" class="ghost small" aria-pressed="false"></button>
+              <p id="gc-drops-hint" class="hint"></p>
+            </div>
           </div>
 
           <div class="card result-card">
-            <h3>Set all remaining</h3>
-            <div class="row">
-              <input id="gc-set-all-pct" type="number" min="0" max="200" step="any" value="85" aria-label="Percent for all remaining assignments">
-              <span>%</span>
-              <button id="gc-set-all" type="button">Apply</button>
-              <button id="gc-clear-whatifs" type="button" class="ghost">Clear what-ifs</button>
-            </div>
-            <p class="hint">Fills every ungraded and hypothetical assignment.</p>
+            <h3>What-if scores</h3>
+            <button id="gc-clear-whatifs" type="button" class="ghost">Clear what-ifs</button>
+            <p class="hint">Removes every score you've typed in, back to what Canvas has.</p>
           </div>
 
           <div class="card result-card">

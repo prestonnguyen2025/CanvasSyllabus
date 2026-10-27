@@ -5,6 +5,8 @@
 //   grade" and ungraded-type assignments never do.
 // - Drop rules pick the drops that leave the best group percentage (drop lowest)
 //   and then the worst (drop highest), never touching "never drop" assignments.
+//   Unlike Canvas, a group's drops wait until every assignment in it has a score,
+//   since an ungraded one could still turn out to be the lowest.
 // - Weighted courses use groups that have points; if their weights add up to
 //   less than 100 the result is scaled up to 100. Totals round to 2 decimals.
 //
@@ -37,8 +39,10 @@ export function targetsFor(scheme) {
   });
 }
 
-export function computeGrade(model, valueOf) {
-  const groups = model.groups.map((g) => groupGrade(g, valueOf));
+// options.applyDrops: drop scores now, from the assignments scored so far, like Canvas does,
+// instead of waiting until every assignment in the group has a score.
+export function computeGrade(model, valueOf, options = {}) {
+  const groups = model.groups.map((g) => groupGrade(g, valueOf, options));
   let exact = null; // unrounded, for "what do I need" so it never counts on rounding up
   if (model.weighted) {
     const relevant = groups.filter((g) => g.possible > 0);
@@ -53,18 +57,22 @@ export function computeGrade(model, valueOf) {
     if (possible > 0) exact = (sum(groups.map((g) => g.score)) / possible) * 100;
   }
   const dropped = new Set(groups.flatMap((g) => [...g.dropped]));
-  return { percent: exact == null ? null : round2(exact), exact, groups, dropped };
+  const held = new Set(groups.filter((g) => g.holding).map((g) => g.id)); // groups whose drops are waiting
+  return { percent: exact == null ? null : round2(exact), exact, groups, dropped, held };
 }
 
-function groupGrade(group, valueOf) {
-  const scored = group.items
-    .filter((item) => item.counts)
+function groupGrade(group, valueOf, options) {
+  const counting = group.items.filter((item) => item.counts);
+  const scored = counting
     .map((item) => ({ item, score: valueOf(item), total: item.pointsPossible || 0 }))
     .filter((s) => s.score != null);
-  const kept = new Set(dropAssignments(scored, group.rules));
+  const hasDrops = Boolean(group.rules?.dropLowest || group.rules?.dropHighest);
+  const holding = hasDrops && !options.applyDrops && scored.length < counting.length;
+  const kept = new Set(holding ? scored : dropAssignments(scored, group.rules));
   const keptList = scored.filter((s) => kept.has(s));
   return {
     id: group.id,
+    holding,
     weight: group.weight || 0,
     score: sum(keptList.map((s) => s.score)),
     possible: sum(keptList.map((s) => s.total)),
@@ -117,9 +125,9 @@ function keepByRatio(subs, keep, cannotDrop, best) {
 
 // The fewest points on `item` that bring the course grade to targetPercent,
 // holding every other assignment at valueOf. Searches up to 3x the item's points.
-export function scoreNeeded(model, valueOf, item, targetPercent) {
+export function scoreNeeded(model, valueOf, item, targetPercent, options = {}) {
   const EPS = 1e-9; // floating-point slack, so 88 isn't reported as 88.01
-  const gradeWith = (x) => (computeGrade(model, (i) => (i.id === item.id ? x : valueOf(i))).exact ?? 0) + EPS;
+  const gradeWith = (x) => (computeGrade(model, (i) => (i.id === item.id ? x : valueOf(i)), options).exact ?? 0) + EPS;
   const max = Math.max(item.pointsPossible || 0, 1) * 3;
   if (gradeWith(0) >= targetPercent) return { status: "secured" };
   if (gradeWith(max) < targetPercent) return { status: "unreachable" };

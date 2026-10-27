@@ -27,10 +27,8 @@
 
 #view-grades .legend { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 0; }
 #view-grades .legend .hint { margin: 0; flex-basis: 100%; }
-#view-grades .gc-weights { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; font-size: 13px; }
-#view-grades .gc-weights label { display: flex; align-items: center; gap: 6px; }
-#view-grades .gc-weights .hint { margin: 0; flex-basis: 100%; }
 #view-grades .notice-banner { margin: 0 0 8px; padding: 8px 12px; border-radius: 8px; background: var(--midterm-bg); font-size: 13px; }
+#view-grades .notice-banner.conflict { border-left: 3px solid var(--accent); }
 
 #view-grades .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
 #view-grades .pill.real { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
@@ -46,6 +44,7 @@
 #view-grades .group-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-bottom: 1px solid var(--border); }
 #view-grades .group-head h2 { font-size: 16px; margin: 0; }
 #view-grades .group-facts { color: var(--muted); font-size: 12px; margin-top: 2px; }
+#view-grades .group-facts.hold { color: var(--accent); max-width: 52ch; }
 #view-grades .group-summary { font-size: 13px; font-variant-numeric: tabular-nums; }
 #view-grades .empty-group { padding: 10px 14px; margin: 0; }
 
@@ -79,10 +78,25 @@
 
 /* Results panel */
 #view-grades .result-card h3 { font-size: 14px; margin: 0 0 8px; }
+#view-grades .weights-card h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#view-grades .seg { display: flex; margin: 0 0 10px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+#view-grades .seg button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--muted); padding: 5px 8px; font-size: 13px; }
+#view-grades .seg button + button { border-left: 1px solid var(--border); }
+#view-grades .seg button[aria-pressed="true"] { background: var(--midterm-bg); color: var(--accent); font-weight: 600; }
+#view-grades .weights-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#view-grades .weights-table td { padding: 6px 0; border-top: 1px solid var(--border); vertical-align: top; }
+#view-grades .weights-table tbody tr:first-child td { border-top: 0; }
+#view-grades .weights-table tfoot td { border-top: 2px solid var(--border); font-weight: 600; }
+#view-grades .w-name { padding-right: 8px !important; overflow-wrap: anywhere; }
+#view-grades .w-detail { color: var(--muted); font-size: 12px; font-weight: 400; }
+#view-grades .w-pct { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #view-grades .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 #view-grades .result-label { color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
 #view-grades .result-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; margin: 2px 0; overflow-wrap: anywhere; }
 #view-grades .result-value .letter { font-size: 16px; color: var(--muted); }
+#view-grades .drops-box { margin-top: 10px; }
+#view-grades .drops-box .hint { margin: 6px 0 0; }
+#view-grades .drops-box button[aria-pressed="true"] { background: var(--midterm-bg); color: var(--accent); border-color: var(--accent); }
 #view-grades .whatif-text { color: var(--accent); }
 #view-grades .delta { font-size: 12px; color: var(--muted); }
 #view-grades .delta.up { color: var(--success); }

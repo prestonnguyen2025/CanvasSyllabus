@@ -14,11 +14,12 @@ const DEFAULTS = {
   manualExams: [], // [{ id, courseId, name, kind, date, ... }] added by hand; kept across re-scans
   gradeCourseId: null, // course last opened in the Grade Calculator
   gradeWhatIfs: {}, // course id -> { overrides, hypotheticals } from the Grade Calculator
-  gradeSyllabusWeights: {}, // course id -> { found, byName, unmatched, at } read from the syllabus
+  gradeSyllabus: {}, // course id -> { found, components, fingerprint, at } the Grade Calculator read from the syllabus
 };
 
-// Settings left over from the removed Gemini provider, including its API key.
-const REMOVED_KEYS = ["provider", "geminiKey"];
+// Settings left over from the removed Gemini provider (including its API key) and
+// from the button-based syllabus weights that gradeSyllabus replaced.
+const REMOVED_KEYS = ["provider", "geminiKey", "gradeSyllabusWeights"];
 
 // Identifies this page's writes, so the side panel and the full site can tell
 // their own changes apart from each other's.
