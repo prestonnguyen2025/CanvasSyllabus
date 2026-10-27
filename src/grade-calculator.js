@@ -20,7 +20,10 @@ let client = null;
 let courses = [];
 let model = null; // the loaded course, with the syllabus applied (see grade-data.js, grade-syllabus.js)
 let view = null; // { table, notices } about where the weights came from (see grade-syllabus.js)
-let plan = null; // { overrides: { itemId: points }, hypotheticals: [{ id, name, groupId, pointsPossible }] }
+let baseModel = null; // the course as Canvas has it, before the syllabus is applied
+let syllabusData = null; // what was read from the syllabus, or null when there's nothing usable
+let loadNotes = []; // notices from loading that don't depend on which weights are shown
+let plan = null; // { overrides: { itemId: points }, hypotheticals: [{ id, name, groupId, pointsPossible }], applyDrops }
 const rows = new Map(); // item id -> { row, pct, slider, number, clear }
 
 const STATUS_LABELS = {
@@ -183,18 +186,24 @@ async function loadCourse(courseId, { force = false } = {}) {
   const { syllabus, problem } = await loadSyllabus(base, name, force);
   if (mine !== loadId) return;
 
-  const applied = applySyllabus(base, syllabus);
-  model = applied.model;
-  view = { table: applied.table, notices: applied.notices };
+  baseModel = base;
+  syllabusData = syllabus?.found ? syllabus : null;
+  loadNotes = [];
   if (syllabus && !syllabus.found) {
-    view.notices.unshift({ kind: "info", text: "The syllabus doesn't list a grading breakdown, so Canvas's weights are used." });
+    loadNotes.push({ kind: "info", text: "The syllabus doesn't list a grading breakdown, so Canvas's weights are used." });
   }
-  if (problem) view.notices.unshift({ kind: "info", text: problem });
+  if (problem) loadNotes.unshift({ kind: "info", text: problem });
 
   const saved = state.gradeWhatIfs[courseId];
-  plan = { overrides: { ...saved?.overrides }, hypotheticals: [...(saved?.hypotheticals ?? [])] };
+  plan = {
+    overrides: { ...saved?.overrides },
+    hypotheticals: [...(saved?.hypotheticals ?? [])],
+    applyDrops: Boolean(saved?.applyDrops),
+    weightSource: saved?.weightSource ?? "syllabus",
+  };
   // Forget what-ifs for groups that no longer exist.
-  plan.hypotheticals = plan.hypotheticals.filter((h) => model.groups.some((g) => g.id === h.groupId));
+  plan.hypotheticals = plan.hypotheticals.filter((h) => base.groups.some((g) => g.id === h.groupId));
+  applyWeights();
 
   if (!model.groups.length) {
     showStatus("empty", "No assignments yet", `${name} doesn't have any assignments in Canvas yet.`);
@@ -208,7 +217,31 @@ async function loadCourse(courseId, { force = false } = {}) {
   renderAll();
 }
 
+// Builds the model from Canvas's weights or the syllabus's, whichever the student has picked.
+function applyWeights() {
+  const applied = applySyllabus(baseModel, syllabusData && plan.weightSource !== "canvas" ? syllabusData : null);
+  model = applied.model;
+  view = { table: applied.table, notices: [...loadNotes, ...applied.notices] };
+}
+
+$("gc-weights-switch").addEventListener("click", (e) => {
+  const source = e.target.closest("button")?.dataset.source;
+  if (!source || source === plan.weightSource) return;
+  plan.weightSource = source;
+  savePlan();
+  applyWeights();
+  renderCourseNotes();
+  renderWeightsTable();
+  renderAll();
+});
+
 $("gc-course-select").addEventListener("change", (e) => loadCourse(e.target.value));
+$("gc-drops-toggle").addEventListener("click", () => {
+  plan.applyDrops = !plan.applyDrops;
+  savePlan();
+  refresh();
+});
+
 // Refresh reloads from Canvas and reads the syllabus again.
 $("gc-refresh").addEventListener("click", () => (model ? loadCourse(model.id, { force: true }) : start()));
 
@@ -266,6 +299,12 @@ function renderCourseNotes() {
 function renderWeightsTable() {
   const { table } = view;
   $("gc-weights-source").textContent = table.source === "syllabus" ? "From syllabus" : "From Canvas";
+  // The switch only makes sense when the syllabus gave something to switch to.
+  const useSyllabus = table.source === "syllabus";
+  $("gc-weights-switch").hidden = !syllabusData;
+  for (const b of $("gc-weights-switch").querySelectorAll("button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.source === (useSyllabus ? "syllabus" : "canvas")));
+  }
   const body = $("gc-weights-body");
   body.replaceChildren(
     ...table.rows.map((row) => {
@@ -436,8 +475,9 @@ function setScore(item, value, from) {
 // the rows (so a slider being dragged keeps working).
 function refresh() {
   const m = fullModel();
-  const current = computeGrade(m, currentValue);
-  const projected = computeGrade(m, projectedValue);
+  const options = { applyDrops: plan.applyDrops };
+  const current = computeGrade(m, currentValue, options);
+  const projected = computeGrade(m, projectedValue, options);
   const currentLetter = letterFor(current.percent, model.scheme);
   const projectedLetter = letterFor(projected.percent, model.scheme);
 
@@ -459,6 +499,15 @@ function refresh() {
   }
 
   renderCanvasCheck(current.percent, current.held.size > 0);
+
+  // Only courses with drop rules get the button.
+  const hasDrops = m.groups.some((g) => g.rules.dropLowest || g.rules.dropHighest);
+  $("gc-drops-box").hidden = !hasDrops;
+  $("gc-drops-toggle").setAttribute("aria-pressed", String(plan.applyDrops));
+  $("gc-drops-toggle").textContent = plan.applyDrops ? "Drops included now ✓" : "Include drops now";
+  $("gc-drops-hint").textContent = plan.applyDrops
+    ? "Dropping the lowest scores entered so far, like Canvas. A later low score can change which are dropped."
+    : "Drops currently wait until every assignment in a group has a score.";
   $("gc-grading-mode").textContent = [
     m.weighted ? (view.table.source === "syllabus" ? "Weighted by the syllabus." : "Weighted by assignment group.") : "Based on total points.",
     model.schemeSource === "course" ? "Letters use this course's grading scheme." : "Letters use a standard scale (A = 94%+), since the course's scheme isn't visible.",
@@ -548,7 +597,7 @@ function renderNeed(m) {
   }
   const list = el("ul", "need-list");
   for (const target of targetsFor(model.scheme)) {
-    const result = scoreNeeded(m, projectedValue, item, target.min);
+    const result = scoreNeeded(m, projectedValue, item, target.min, { applyDrops: plan.applyDrops });
     const li = el("li");
     li.append(el("span", "need-letter", `${target.name} (${target.min}%+)`));
     let text;
@@ -573,17 +622,7 @@ function renderNeed(m) {
   out.replaceChildren(list);
 }
 
-// ---------- Set all / clear / add ----------
-
-$("gc-set-all").addEventListener("click", () => {
-  const pct = Number($("gc-set-all-pct").value);
-  if (!Number.isFinite(pct) || pct < 0) return;
-  for (const item of fullModel().groups.flatMap((g) => g.items.filter(isOpen))) {
-    plan.overrides[item.id] = round2((item.pointsPossible * pct) / 100);
-  }
-  savePlan();
-  renderAll();
-});
+// ---------- Clear / add ----------
 
 $("gc-clear-whatifs").addEventListener("click", () => {
   plan.overrides = {};
