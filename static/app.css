@@ -4,8 +4,9 @@
 
 :root { --success: #1a7f37; --final: #8250df; --final-bg: #f1eafd; --midterm-bg: #fbe9dc; }
 @media (prefers-color-scheme: dark) {
-  :root { --success: #4ac26b; --final: #b392f0; --final-bg: #2e2440; --midterm-bg: #3a2a1e; }
+  :root:not([data-theme="light"]) { --success: #4ac26b; --final: #b392f0; --final-bg: #2e2440; --midterm-bg: #3a2a1e; }
 }
+:root[data-theme="dark"] { --success: #4ac26b; --final: #b392f0; --final-bg: #2e2440; --midterm-bg: #3a2a1e; }
 
 .site .topbar { padding: 12px 24px; gap: 16px; }
 .site .topbar h1 { font-size: 17px; }

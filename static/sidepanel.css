@@ -8,9 +8,11 @@
   --accent-text: #ffffff;
   --user-bubble: #fbe9dc;
   --error: #b42318;
+  color-scheme: light;
 }
+/* Dark colors follow the system unless Settings picks a theme (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #18181b;
     --surface: #232327;
     --text: #ececf0;
@@ -20,7 +22,20 @@
     --accent-text: #18181b;
     --user-bubble: #3a2a1e;
     --error: #f97066;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #18181b;
+  --surface: #232327;
+  --text: #ececf0;
+  --muted: #9d9da6;
+  --border: #35353b;
+  --accent: #e0782a;
+  --accent-text: #18181b;
+  --user-bubble: #3a2a1e;
+  --error: #f97066;
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -89,6 +104,9 @@ summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
 #composer { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--surface); }
 #composer textarea { resize: none; }
 
+.appearance { border: 0; border-top: 1px solid var(--border); margin: 12px 0 0; padding: 10px 0 0; }
+.appearance legend { font-weight: 600; padding: 0; margin-bottom: 6px; }
+.appearance select { width: auto; }
 .course-toggles { border: 0; border-top: 1px solid var(--border); margin: 12px 0 0; padding: 10px 0 0; }
 .course-toggles legend { font-weight: 600; padding: 0; }
 #course-visibility { list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow-y: auto; }

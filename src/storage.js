@@ -4,6 +4,7 @@ const DEFAULTS = {
   canvasUrl: "https://utexas.instructure.com",
   apiKey: "", // Anthropic key
   claudeModel: "claude-haiku-5-5",
+  theme: "system", // "system", "light" or "dark"
   courses: [],
   selectedIds: null, // null = all courses selected
   hiddenIds: [], // courses turned off in Settings: not shown, synced, scanned or chatted about

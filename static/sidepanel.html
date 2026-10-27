@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Syllabus Chat</title>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
@@ -31,6 +32,14 @@
       <button id="save-settings">Save</button>
       <span id="settings-status" class="hint"></span>
     </div>
+    <fieldset class="appearance">
+      <legend>Appearance</legend>
+      <select id="theme" aria-label="Theme">
+        <option value="system">Match my computer</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </fieldset>
     <fieldset class="course-toggles">
       <legend>Courses to show</legend>
       <p class="hint">Turned-off courses are hidden everywhere and skipped when syncing, finding exams and chatting. Changes save right away. To bring one back, turn it on and sync again.</p>

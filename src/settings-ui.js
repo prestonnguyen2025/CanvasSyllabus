@@ -1,6 +1,7 @@
 import { normalizeCanvasUrl } from "./canvas.js";
 import { CLAUDE_MODELS } from "./claude.js";
 import { ensureHostPermission } from "./sync.js";
+import { applyTheme } from "./theme.js";
 import * as storage from "./storage.js";
 
 // The settings form, shared by the side panel and the full site (same element ids).
@@ -14,6 +15,13 @@ export function mountSettings(state, { onModelChange, onCoursesChange }) {
     ...Object.entries(CLAUDE_MODELS).map(([id, { label }]) => new Option(label, id))
   );
   fillSettings(state);
+
+  // Applies and saves right away, like the course switches.
+  $("theme").addEventListener("change", async () => {
+    state.theme = $("theme").value;
+    applyTheme(state.theme);
+    await storage.save({ theme: state.theme });
+  });
 
   $("save-settings").addEventListener("click", async () => {
     try {
@@ -41,6 +49,8 @@ export function fillSettings(state) {
   $("canvas-url").value = state.canvasUrl;
   $("api-key").value = state.apiKey;
   $("claude-model").value = state.claudeModel;
+  $("theme").value = state.theme;
+  applyTheme(state.theme);
   renderCourseVisibility(state);
 }
 

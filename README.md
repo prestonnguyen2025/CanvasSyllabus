@@ -48,7 +48,7 @@ Click **⤢** in the side panel header to open the full site in a tab. It's a pa
 - **Courses** — every synced course, whether a syllabus was found (add one with **+**), and whether it's included in the chat.
 - **Exam calendar** — midterms, finals and other exams on a month calendar, each with its time, place and the material it covers. Click **Find exams in syllabi** to have Claude read each course's syllabus and Canvas assignments (one request per course, a few cents with Haiku). Re-scan after syncing or adding a syllabus.
 - **Chat** — the same chat as the side panel, with more room.
-- **Settings** — the same settings as the side panel, plus **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again.
+- **Settings** — the same settings as the side panel, plus **Appearance** (match your computer, light, or dark; applies to the side panel too) and **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again.
 
 To add a view, add a `<section id="view-NAME">` and a nav link to `#NAME` in `static/app.html`, then add `NAME` to `VIEWS` in `src/app.js`.
 
