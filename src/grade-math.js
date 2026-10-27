@@ -5,6 +5,8 @@
 //   grade" and ungraded-type assignments never do.
 // - Drop rules pick the drops that leave the best group percentage (drop lowest)
 //   and then the worst (drop highest), never touching "never drop" assignments.
+//   Unlike Canvas, a group's drops wait until every assignment in it has a score,
+//   since an ungraded one could still turn out to be the lowest.
 // - Weighted courses use groups that have points; if their weights add up to
 //   less than 100 the result is scaled up to 100. Totals round to 2 decimals.
 //
@@ -53,18 +55,22 @@ export function computeGrade(model, valueOf) {
     if (possible > 0) exact = (sum(groups.map((g) => g.score)) / possible) * 100;
   }
   const dropped = new Set(groups.flatMap((g) => [...g.dropped]));
-  return { percent: exact == null ? null : round2(exact), exact, groups, dropped };
+  const held = new Set(groups.filter((g) => g.holding).map((g) => g.id)); // groups whose drops are waiting
+  return { percent: exact == null ? null : round2(exact), exact, groups, dropped, held };
 }
 
 function groupGrade(group, valueOf) {
-  const scored = group.items
-    .filter((item) => item.counts)
+  const counting = group.items.filter((item) => item.counts);
+  const scored = counting
     .map((item) => ({ item, score: valueOf(item), total: item.pointsPossible || 0 }))
     .filter((s) => s.score != null);
-  const kept = new Set(dropAssignments(scored, group.rules));
+  const hasDrops = Boolean(group.rules?.dropLowest || group.rules?.dropHighest);
+  const holding = hasDrops && scored.length < counting.length;
+  const kept = new Set(holding ? scored : dropAssignments(scored, group.rules));
   const keptList = scored.filter((s) => kept.has(s));
   return {
     id: group.id,
+    holding,
     weight: group.weight || 0,
     score: sum(keptList.map((s) => s.score)),
     possible: sum(keptList.map((s) => s.total)),

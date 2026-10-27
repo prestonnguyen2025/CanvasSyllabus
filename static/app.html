@@ -82,7 +82,7 @@
       <h2>Grade Calculator</h2>
       <div class="picker">
         <select id="gc-course-select" aria-label="Course" disabled></select>
-        <button id="gc-refresh" class="ghost" title="Reload grades from Canvas">Refresh</button>
+        <button id="gc-refresh" class="ghost" title="Reload grades from Canvas and read the syllabus again">Refresh</button>
       </div>
     </div>
     <div class="scroll">
@@ -97,16 +97,6 @@
       <div id="gc-calc" class="calc" hidden>
         <main class="groups-col">
           <div id="gc-course-notes"></div>
-          <div class="gc-weights">
-            <label>Weights from
-              <select id="gc-weight-source" aria-label="Weights from">
-                <option value="canvas">Canvas</option>
-                <option value="syllabus">Syllabus</option>
-              </select>
-            </label>
-            <button id="gc-read-weights" type="button" class="ghost">Read weights from syllabus</button>
-            <span id="gc-weights-status" class="hint"></span>
-          </div>
           <p class="legend">
             <span class="pill real">🔒 From Canvas</span>
             <span class="pill whatif">What-if</span>
@@ -128,6 +118,16 @@
         </main>
 
         <aside class="results" aria-label="Results">
+          <div class="card result-card weights-card">
+            <h3>Grading breakdown <span id="gc-weights-source" class="pill open"></span></h3>
+            <table class="weights-table">
+              <tbody id="gc-weights-body"></tbody>
+              <tfoot>
+                <tr><td class="w-name">Total</td><td id="gc-weights-total" class="w-pct"></td></tr>
+              </tfoot>
+            </table>
+          </div>
+
           <div class="card result-card">
             <div class="result-grid">
               <div>

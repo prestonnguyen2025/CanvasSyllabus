@@ -46,7 +46,7 @@ PDF and text files are read (PDFs go to Claude as native documents, so tables an
 Click **⤢** in the side panel header to open the full site in a tab. It's a page inside the extension (`app.html`), so it uses your Canvas login and the same saved courses as the side panel, and the two stay in sync. It has:
 
 - **Courses** — every synced course, whether a syllabus was found (add one with **+**), and whether it's included in the chat.
-- **Exam calendar** — midterms, finals and other exams on a month calendar, each with its time, place and the material it covers. Click **Find exams in syllabi** to have Claude read each course's syllabus and Canvas assignments (one request per course, a few cents with Haiku). Re-scan after syncing or adding a syllabus.
+- **Exam calendar** — midterms, finals and other exams on a month calendar, each with its time, place and the material it covers. Click **Find exams in syllabi** to have Claude read each course's syllabus and Canvas assignments (one request per course, a few cents with Haiku). Re-scan after syncing or adding a syllabus. If a syllabus doesn't list an exam, use **Add an exam yourself**; those exams are kept when you re-scan.
 - **Grade Calculator** — your Canvas grades with what-if scores (see below).
 - **Chat** — the same chat as the side panel, with more room.
 - **Settings** — the same settings as the side panel, plus **Appearance** (match your computer, light, or dark; applies to the side panel too) and **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again.
@@ -61,11 +61,19 @@ It's the **Grade Calculator** tab of the website: open it from the website's nav
 - Graded assignments come in locked (🔒 From Canvas). Click **What-if** to try a different score; **Reset** restores the real one.
 - Ungraded assignments get a slider and a number box; hypothetical ones (like a final not yet in Canvas) can be added per group.
 - The results panel shows your current grade (graded work only), the projected grade from your what-ifs, the letter, and the change. **Set all remaining** fills every open assignment; **What do I need?** shows the score needed on one assignment for an A, B or C.
-- The math follows Canvas's own calculator: weighted groups (rescaled when some groups have no grades yet) or total points, drop lowest/highest (choosing the drops that help most, like Canvas does), never-drop, excused and "doesn't count" assignments. Missing work counts as 0 only once Canvas has recorded a 0. Grades your instructor hasn't posted are treated as ungraded.
+- The math follows Canvas's own calculator: weighted groups (rescaled when some groups have no grades yet) or total points, drop lowest/highest (choosing the drops that help most, like Canvas does), never-drop, excused and "doesn't count" assignments. Missing work counts as 0 only once Canvas has recorded a 0. Grades your instructor hasn't posted are treated as ungraded. One difference: a group's drops wait until every assignment in it has a score, since an ungraded one could still turn out lowest.
 - Your calculated current grade is compared with the total Canvas reports, with a warning if they differ by more than 0.1 points.
 - Letters use the course's grading scheme when Canvas shares it with students, otherwise Canvas's standard scale.
 
-What-if scores are saved per course in this browser only. The page talks only to your Canvas site.
+### Weights from the syllabus
+
+The first time you open a course, Claude reads its syllabus (one request, a few cents with Haiku) and the calculator uses what it says: each component's share of the grade, its drop rules, and its date. The result is saved and reused until the synced syllabus changes or you click **Refresh**. The **Grading breakdown** table at the top of the results column lists what's being used.
+
+- The syllabus wins over Canvas. Where the two disagree on a group's weight, or the syllabus lists something Canvas doesn't have yet (a final exam, say), a notice says so.
+- Graded items the syllabus lists but Canvas doesn't have get their own card, worth the percent the syllabus gives them; type a score as a percent. They're tagged with their date, or "no date". If the syllabus gives no weight, the card says so and isn't counted. When Canvas posts the assignment, the card is replaced by it.
+- Without an Anthropic key, or for a course with no synced syllabus text (Simple Syllabus courses), the calculator uses Canvas's weights and says why.
+
+What-if scores are saved per course in this browser only. The page talks to your Canvas site, and sends a course's syllabus to the Anthropic API when it reads it.
 
 Known limits: courses with grading periods may total differently than shown (the mismatch warning flags it); if your instructor hides course totals there's nothing to check against; a course that hides assignments from students can't be calculated.
 
@@ -87,6 +95,8 @@ Syllabi and API keys are stored in `chrome.storage.local` on your machine. Canva
 | `src/grade-calculator.js` | Grade Calculator tab of the site |
 | `src/grade-data.js` | Loads grades from Canvas for the calculator |
 | `src/grade-math.js` | Canvas-compatible grade math (weights, drops, letters, needed score) |
+| `src/grade-weights.js` | Reads a course's grading breakdown from its syllabus |
+| `src/grade-syllabus.js` | Applies the syllabus to the Canvas grades: weights, drops, extra items, conflict notices |
 | `src/exams.js` | Exam extraction for the calendar (structured JSON output) |
 | `src/chat-ui.js` | Chat box shared by both pages |
 | `src/settings-ui.js` | Settings form shared by both pages |
