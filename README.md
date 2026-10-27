@@ -49,7 +49,7 @@ Click **⤢** in the side panel header to open the full site in a tab. It's a pa
 - **Exam calendar** — midterms, finals and other exams on a month calendar, each with its time, place and the material it covers. Click **Find exams in syllabi** to have Claude read each course's syllabus and Canvas assignments (one request per course, a few cents with Haiku). Re-scan after syncing or adding a syllabus. If a syllabus doesn't list an exam, use **Add an exam yourself**; those exams are kept when you re-scan.
 - **Grade Calculator** — your Canvas grades with what-if scores (see below).
 - **Chat** — the same chat as the side panel, with more room.
-- **Settings** — the same settings as the side panel, plus **Appearance** (match your computer, light, or dark; applies to the side panel too) and **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again.
+- **Settings** — the same settings as the side panel, plus **Appearance** (match your computer, light, or dark; applies to the side panel too) and **Courses to show**: untick a course to hide it everywhere (side panel, site, chat, exam calendar). Hidden courses are skipped when syncing and finding exams, and their exams are removed. To bring one back, tick it and sync again. **Export for another AI** gathers everything about the courses you tick (grades and what-if scores loaded fresh from Canvas, each course's grading breakdown, the score needed on upcoming exams, exams, and the syllabus text) into one Markdown document. Copy it or download it as a `.md` file, then paste it into another AI assistant to review how you're doing.
 
 To add a view, add a `<section id="view-NAME">` and a nav link to `#NAME` in `static/app.html`, then add `NAME` to `VIEWS` in `src/app.js`.
 
@@ -84,7 +84,7 @@ Syllabi and API keys are stored in `chrome.storage.local` on your machine. Canva
 
 ## Development
 
-`npm run watch` rebuilds on change; then hit the reload button on `chrome://extensions`.
+`npm run watch` rebuilds on change; then hit the reload button on `chrome://extensions`. `npm test` runs the grade math and syllabus tests in `test/` (Node 20+).
 
 | File | Purpose |
 |---|---|
@@ -98,6 +98,8 @@ Syllabi and API keys are stored in `chrome.storage.local` on your machine. Canva
 | `src/grade-math.js` | Canvas-compatible grade math (weights, drops, letters, needed score) |
 | `src/grade-weights.js` | Reads a course's grading breakdown from its syllabus |
 | `src/grade-syllabus.js` | Applies the syllabus to the Canvas grades: weights, drops, extra items, conflict notices |
+| `src/export.js` | Export for another AI (Settings) |
+| `src/util.js` | Shared element and date helpers |
 | `src/exams.js` | Exam extraction for the calendar (structured JSON output) |
 | `src/chat-ui.js` | Chat box shared by both pages |
 | `src/settings-ui.js` | Settings form shared by both pages |

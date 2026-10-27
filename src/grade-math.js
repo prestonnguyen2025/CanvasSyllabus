@@ -39,6 +39,29 @@ export function targetsFor(scheme) {
   });
 }
 
+// The model with the student's hypothetical assignments ({ id, name, groupId, pointsPossible })
+// added to their groups.
+export function withHypotheticals(model, hypotheticals = []) {
+  return {
+    ...model,
+    groups: model.groups.map((g) => ({
+      ...g,
+      items: [
+        ...g.items,
+        ...hypotheticals
+          .filter((h) => h.groupId === g.id)
+          .map((h) => ({ ...h, kind: "hypothetical", counts: true, status: "hypothetical" })),
+      ],
+    })),
+  };
+}
+
+// valueOf functions for computeGrade: real Canvas grades only, or with what-if scores
+// (overrides: { itemId: points }) in place of them.
+export const isGraded = (item) => item.kind === "canvas" && item.status === "graded";
+export const currentValue = (item) => (isGraded(item) ? item.realScore : null);
+export const whatIfValue = (overrides, item) => (item.id in overrides ? overrides[item.id] : currentValue(item));
+
 // options.applyDrops: drop scores now, from the assignments scored so far, like Canvas does,
 // instead of waiting until every assignment in the group has a score.
 export function computeGrade(model, valueOf, options = {}) {

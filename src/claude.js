@@ -39,6 +39,24 @@ export function buildContextBlocks(courses) {
   return blocks;
 }
 
+// One syllabus-reading request whose answer is JSON matching `schema` (structured output),
+// as used by the exam calendar and the Grade Calculator. Returns the parsed answer; throws
+// on a refusal or a cut-off answer (turn errors into messages with friendlyError).
+export async function requestJson(client, { model, schema, system, content, maxTokens, cutOffMessage }) {
+  const message = await client.messages
+    .stream({
+      model: CLAUDE_MODELS[model] ? model : DEFAULT_CLAUDE_MODEL,
+      max_tokens: maxTokens,
+      output_config: { effort: "low", format: { type: "json_schema", schema } },
+      system,
+      messages: [{ role: "user", content }],
+    })
+    .finalMessage();
+  if (message.stop_reason === "refusal") throw new Error("Claude declined to read this syllabus.");
+  if (message.stop_reason === "max_tokens") throw new Error(cutOffMessage);
+  return JSON.parse(message.content.filter((b) => b.type === "text").map((b) => b.text).join(""));
+}
+
 export function estimateBytes(blocks) {
   return new Blob([JSON.stringify(blocks)]).size;
 }

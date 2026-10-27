@@ -214,6 +214,21 @@
         <ul id="course-visibility"></ul>
       </fieldset>
     </div>
+
+    <div class="card settings-card export-card">
+      <h3>Export for another AI</h3>
+      <p class="hint">Puts everything about the courses you pick into one document: grades and your what-if scores (loaded fresh from Canvas), how each course is graded, the score you need on upcoming exams, your exams, and the syllabus text. Paste it into another AI assistant to review how you're doing and what to do next.</p>
+      <fieldset class="export-options">
+        <legend>Courses</legend>
+        <p id="export-empty" class="hint">Sync from Canvas to list your courses here.</p>
+        <ul id="export-courses"></ul>
+      </fieldset>
+      <div class="row">
+        <button id="export-copy" type="button">Copy to clipboard</button>
+        <button id="export-download" type="button" class="ghost">Download .md file</button>
+        <span id="export-status" class="hint" aria-live="polite"></span>
+      </div>
+    </div>
   </section>
 
   <input id="file-picker" type="file" accept=".pdf,.txt,application/pdf,text/plain" hidden>

@@ -4,6 +4,21 @@ import { DEFAULT_SCHEME } from "./grade-math.js";
 // Reads a student's grades from Canvas (with their logged-in session) and turns
 // them into the model grade-math.js works on.
 
+// How each assignment status is described on the page and in exports.
+export const STATUS_LABELS = {
+  graded: "From Canvas",
+  pending: "Waiting for review",
+  hidden: "Grade not posted yet",
+  submitted: "Submitted, not graded",
+  missing: "Missing, not counted",
+  ungraded: "Not graded yet",
+  syllabus: "From syllabus",
+  "no-weight": "In syllabus, no weight listed",
+  excused: "Excused",
+  omitted: "Doesn't count toward grade",
+  "not-graded": "Not graded",
+};
+
 // Courses the student is actively enrolled in as a student.
 export async function listGradeCourses(client) {
   try {

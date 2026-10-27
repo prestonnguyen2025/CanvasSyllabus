@@ -5,11 +5,13 @@
 
 import { createChat } from "./chat-ui.js";
 import { findExams } from "./exams.js";
+import { buildExport, downloadText } from "./export.js";
 import { showGradeCalculator, reloadGradeCalculator } from "./grade-calculator.js";
 import { courseLabel, hasSyllabus } from "./prompt.js";
 import { mountSettings, fillSettings, renderCourseVisibility } from "./settings-ui.js";
 import { syncFromCanvas, openSimpleSyllabus, addSyllabusFile } from "./sync.js";
 import * as storage from "./storage.js";
+import { el, formatTime, parseDay } from "./util.js";
 
 const $ = (id) => document.getElementById(id);
 const VIEWS = ["overview", "calendar", "grades", "chat", "settings"];
@@ -26,13 +28,6 @@ mountSettings(state, {
     chat.reset("Course list changed — started a new chat.");
   },
 });
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text != null) node.textContent = text;
-  return node;
-}
 
 // ---------- Navigation ----------
 
@@ -128,18 +123,6 @@ $("file-picker").addEventListener("change", async (event) => {
 const KIND_LABELS = { midterm: "Midterm", final: "Final", exam: "Exam" };
 let shownMonth = null; // first day of the month on screen
 let selectedExam = null; // key of the exam last clicked on the calendar
-
-// "2026-11-04" -> local midnight (new Date("2026-11-04") would be UTC).
-function parseDay(iso) {
-  const [y, m, d] = iso.split("-").map(Number);
-  return y && m && d ? new Date(y, m - 1, d) : null;
-}
-
-function formatTime(hhmm) {
-  const [h, m] = hhmm.split(":").map(Number);
-  if (Number.isNaN(h)) return hhmm;
-  return new Date(2000, 0, 1, h, m || 0).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
 
 // Exams found in the syllabi plus ones added by hand, for courses that are turned on.
 function allExams() {
@@ -349,6 +332,58 @@ function renderChatScope() {
     : "";
 }
 
+// ---------- Export (Settings) ----------
+
+const exportSkipped = new Set(); // course ids unticked on the Export card (new courses start ticked)
+
+function renderExportCourses() {
+  const courses = storage.visibleCourses(state);
+  $("export-empty").hidden = courses.length > 0;
+  $("export-courses").replaceChildren(
+    ...courses.map((course) => {
+      const label = el("label");
+      const box = el("input");
+      box.type = "checkbox";
+      box.checked = !exportSkipped.has(course.id);
+      box.addEventListener("change", () => (box.checked ? exportSkipped.delete(course.id) : exportSkipped.add(course.id)));
+      label.append(box, courseLabel(course));
+      const li = el("li");
+      li.append(label);
+      return li;
+    })
+  );
+}
+
+async function runExport(output) {
+  const status = $("export-status");
+  const courses = storage.visibleCourses(state).filter((c) => !exportSkipped.has(c.id));
+  if (!courses.length) {
+    status.textContent = storage.visibleCourses(state).length ? "Pick at least one course." : "Sync your courses first.";
+    return;
+  }
+  const buttons = [$("export-copy"), $("export-download")];
+  buttons.forEach((b) => (b.disabled = true));
+  try {
+    const text = await buildExport(state, courses, (msg) => (status.textContent = msg));
+    if (output === "copy") {
+      await navigator.clipboard.writeText(text);
+      status.textContent = "Copied. Paste it into your AI assistant.";
+    } else {
+      downloadText(text, `my-courses-${new Date().toISOString().slice(0, 10)}.md`);
+      status.textContent = "Downloaded.";
+    }
+  } catch (e) {
+    status.textContent = output === "copy"
+      ? "Couldn't copy to the clipboard. Try “Download .md file” instead."
+      : `Couldn't export: ${e.message}`;
+  } finally {
+    buttons.forEach((b) => (b.disabled = false));
+  }
+}
+
+$("export-copy").addEventListener("click", () => runExport("copy"));
+$("export-download").addEventListener("click", () => runExport("download"));
+
 // ---------- Live updates from the side panel and background ----------
 
 storage.onExternalChange(async (changes) => {
@@ -366,6 +401,7 @@ function renderAll() {
   renderCalendar();
   renderChatScope();
   renderCourseVisibility(state);
+  renderExportCourses();
 }
 
 if (!state.apiKey && !location.hash) location.hash = "#settings";

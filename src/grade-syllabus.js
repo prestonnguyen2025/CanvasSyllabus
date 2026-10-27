@@ -1,4 +1,5 @@
 import { round2 } from "./grade-math.js";
+import { formatDay } from "./util.js";
 
 // Combines a course's Canvas grades (grade-data.js) with what its syllabus says about
 // grading (grade-weights.js). The syllabus wins: its weights replace Canvas's, its drop
@@ -16,10 +17,10 @@ export function canvasWeightsUsable(model) {
   return weights.length === 1 || new Set(weights).size > 1;
 }
 
-export function formatDay(iso) {
-  const [y, m, d] = iso.split("-").map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+// The syllabus reading to apply, given the student's saved choice (plan.weightSource),
+// or null to use Canvas's weights.
+export function syllabusInUse(syllabus, plan) {
+  return syllabus?.found && plan?.weightSource !== "canvas" ? syllabus : null;
 }
 
 export function dropText(rules) {
@@ -55,7 +56,8 @@ function canvasTable(model) {
 }
 
 // base: the model from loadCourseGrades. syllabus: the saved result of readSyllabusGrading,
-// or null. Returns { model, table, notices: [{ kind: "conflict" | "info", text }] }.
+// or null. Returns { model, table, notices: [{ kind: "conflict" | "info", text, hint? }] },
+// where text is the plain fact and hint is what to do about it on the calculator page.
 export function applySyllabus(base, syllabus) {
   if (!syllabus?.found) return { model: base, table: canvasTable(base), notices: [] };
 
@@ -134,7 +136,8 @@ export function applySyllabus(base, syllabus) {
       kind: "conflict",
       text: `In the syllabus but not in Canvas yet: ${counted
         .map((p) => `${p.name} (${round2(p.weight)}%, ${p.items[0].syllabusDate ? formatDay(p.items[0].syllabusDate) : "no date given"})`)
-        .join("; ")}. Added below; enter a score as a percent.`,
+        .join("; ")}.`,
+      hint: "Added below; enter a score as a percent.",
     });
   }
   const unweighted = placeholders.filter((p) => !p.items[0].counts);

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildContextBlocks, friendlyError, CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL } from "./claude.js";
+import { buildContextBlocks, friendlyError, requestJson, DEFAULT_CLAUDE_MODEL } from "./claude.js";
 import { courseLabel } from "./prompt.js";
 
 // Reads each course's syllabus and Canvas assignments and pulls out its exams
@@ -65,25 +65,16 @@ async function examsForCourse(client, course, model) {
   if (!course.sources.length) return [];
   // buildContextBlocks ends with a multi-course attachment summary; one course needs none.
   const documents = buildContextBlocks([course]).filter((b) => b.type === "document");
-  const message = await client.messages
-    .stream({
-      model: CLAUDE_MODELS[model] ? model : DEFAULT_CLAUDE_MODEL,
-      max_tokens: 8000,
-      output_config: { effort: "low", format: { type: "json_schema", schema: EXAM_SCHEMA } },
-      system: `You extract exam schedules from course syllabi. Today is ${new Date().toDateString()}.`,
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...documents,
-            { type: "text", text: `Course: ${courseLabel(course)}${course.term ? `, ${course.term}` : ""}\n\n${INSTRUCTIONS}` },
-          ],
-        },
-      ],
-    })
-    .finalMessage();
-  if (message.stop_reason === "refusal") throw new Error("Claude declined to read this syllabus.");
-  if (message.stop_reason === "max_tokens") throw new Error("The exam list was cut off.");
-  const text = message.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-  return JSON.parse(text).exams;
+  const answer = await requestJson(client, {
+    model,
+    schema: EXAM_SCHEMA,
+    maxTokens: 8000,
+    cutOffMessage: "The exam list was cut off.",
+    system: `You extract exam schedules from course syllabi. Today is ${new Date().toDateString()}.`,
+    content: [
+      ...documents,
+      { type: "text", text: `Course: ${courseLabel(course)}${course.term ? `, ${course.term}` : ""}\n\n${INSTRUCTIONS}` },
+    ],
+  });
+  return answer.exams;
 }

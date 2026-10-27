@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildContextBlocks, friendlyError, CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL } from "./claude.js";
+import { buildContextBlocks, friendlyError, requestJson, DEFAULT_CLAUDE_MODEL } from "./claude.js";
 
 // Reads how a course's syllabus grades the course: each component's share of the
 // final grade, its drop rules, and its date. The Grade Calculator runs this on its
@@ -44,16 +44,19 @@ For each component give:
 
 Set found to false, with an empty list, if the syllabus gives no grade breakdown or says the grade is based on total points. Use only what the documents say; never guess.`;
 
-// Changes when the course's syllabus text or files change (the Canvas assignment
-// summary is left out, since it changes with every sync).
+// The course's syllabus material, without the Canvas assignment summary (which
+// changes with every sync and is sent separately, fresh from Canvas).
 export function syllabusSources(course) {
   return (course?.sources ?? []).filter((s) => !s.assignments);
 }
 
-export function syllabusFingerprint(course) {
-  return syllabusSources(course)
-    .map((s) => `${s.title}:${s.kind === "pdf" ? s.data.length : s.text.length}`)
-    .join("|");
+// A SHA-256 hash of the syllabus text and files: changes whenever any of them does.
+export async function syllabusFingerprint(course) {
+  const content = syllabusSources(course)
+    .map((s) => `${s.title}\n${s.kind === "pdf" ? s.data : s.text}`)
+    .join("\n\u0000\n");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(content));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // canvasGroups: [{ name, assignments: [name] }]. Never throws: returns { error } instead.
@@ -66,34 +69,24 @@ export async function readSyllabusGrading({ apiKey, course, canvasGroups, model 
     const groupLines = canvasGroups.map(
       (g) => `- "${g.name}": ${g.assignments.slice(0, 60).join("; ") || "(no assignments yet)"}`
     );
-    const message = await client.messages
-      .stream({
-        model: CLAUDE_MODELS[model] ? model : DEFAULT_CLAUDE_MODEL,
-        max_tokens: 6000,
-        output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
-        system: `You read course syllabi to find how the final grade is calculated. Today is ${new Date().toDateString()}.`,
-        messages: [
-          {
-            role: "user",
-            content: [
-              ...documents,
-              {
-                type: "text",
-                text: `Course: ${course.name}${course.term ? `, ${course.term}` : ""}\n\nCanvas assignment groups and their assignments:\n${groupLines.join("\n")}\n\n${INSTRUCTIONS}`,
-              },
-            ],
-          },
-        ],
-      })
-      .finalMessage();
-    if (message.stop_reason === "refusal") throw new Error("Claude declined to read this syllabus.");
-    if (message.stop_reason === "max_tokens") throw new Error("The grading breakdown was cut off.");
-    const text = message.content.filter((b) => b.type === "text").map((b) => b.text).join("");
-    const result = JSON.parse(text);
+    const result = await requestJson(client, {
+      model,
+      schema: SCHEMA,
+      maxTokens: 6000,
+      cutOffMessage: "The grading breakdown was cut off.",
+      system: `You read course syllabi to find how the final grade is calculated. Today is ${new Date().toDateString()}.`,
+      content: [
+        ...documents,
+        {
+          type: "text",
+          text: `Course: ${course.name}${course.term ? `, ${course.term}` : ""}\n\nCanvas assignment groups and their assignments:\n${groupLines.join("\n")}\n\n${INSTRUCTIONS}`,
+        },
+      ],
+    });
     return {
       found: result.found && result.components.length > 0,
       components: result.components,
-      fingerprint: syllabusFingerprint(course),
+      fingerprint: await syllabusFingerprint(course),
       at: Date.now(),
     };
   } catch (e) {

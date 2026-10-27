@@ -5,11 +5,14 @@
 
 import { shortCourseName } from "./autocomplete.js";
 import { CanvasClient } from "./canvas.js";
-import { listGradeCourses, loadCourseGrades } from "./grade-data.js";
-import { computeGrade, letterFor, round2, scoreNeeded, targetsFor } from "./grade-math.js";
-import { applySyllabus, dropText, formatDay } from "./grade-syllabus.js";
+import { listGradeCourses, loadCourseGrades, STATUS_LABELS } from "./grade-data.js";
+import {
+  computeGrade, currentValue, isGraded, letterFor, round2, scoreNeeded, targetsFor, whatIfValue, withHypotheticals,
+} from "./grade-math.js";
+import { applySyllabus, dropText, syllabusInUse } from "./grade-syllabus.js";
 import { readSyllabusGrading, syllabusFingerprint, syllabusSources } from "./grade-weights.js";
 import * as storage from "./storage.js";
+import { el, formatDay } from "./util.js";
 
 const $ = (id) => document.getElementById(id);
 const TOLERANCE = 0.1; // percentage points of difference from Canvas before warning
@@ -25,27 +28,6 @@ let syllabusData = null; // what was read from the syllabus, or null when there'
 let loadNotes = []; // notices from loading that don't depend on which weights are shown
 let plan = null; // { overrides: { itemId: points }, hypotheticals: [{ id, name, groupId, pointsPossible }], applyDrops }
 const rows = new Map(); // item id -> { row, pct, slider, number, clear }
-
-const STATUS_LABELS = {
-  graded: "From Canvas",
-  pending: "Waiting for review",
-  hidden: "Grade not posted yet",
-  submitted: "Submitted, not graded",
-  missing: "Missing, not counted",
-  ungraded: "Not graded yet",
-  syllabus: "From syllabus",
-  "no-weight": "In syllabus, no weight listed",
-  excused: "Excused",
-  omitted: "Doesn't count toward grade",
-  "not-graded": "Not graded",
-};
-
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text != null) node.textContent = text;
-  return node;
-}
 
 const fmtPct = (p) => (p == null ? "—" : `${p.toFixed(2)}%`);
 const fmtPts = (x) => String(round2(x));
@@ -145,7 +127,7 @@ async function loadSyllabus(base, name, force) {
       ? { syllabus: saved, problem: null }
       : { syllabus: null, problem: "This course has no synced syllabus text, so Canvas's weights are used. Sync your courses or add a syllabus file on the Courses page." };
   }
-  if (saved && !force && saved.fingerprint === syllabusFingerprint(course)) return { syllabus: saved, problem: null };
+  if (saved && !force && saved.fingerprint === (await syllabusFingerprint(course))) return { syllabus: saved, problem: null };
   if (!state.apiKey) {
     return {
       syllabus: saved,
@@ -219,7 +201,7 @@ async function loadCourse(courseId, { force = false } = {}) {
 
 // Builds the model from Canvas's weights or the syllabus's, whichever the student has picked.
 function applyWeights() {
-  const applied = applySyllabus(baseModel, syllabusData && plan.weightSource !== "canvas" ? syllabusData : null);
+  const applied = applySyllabus(baseModel, syllabusInUse(syllabusData, plan));
   model = applied.model;
   view = { table: applied.table, notices: [...loadNotes, ...applied.notices] };
 }
@@ -247,27 +229,8 @@ $("gc-refresh").addEventListener("click", () => (model ? loadCourse(model.id, { 
 
 // ---------- The model with hypothetical assignments added ----------
 
-function fullModel() {
-  return {
-    ...model,
-    groups: model.groups.map((g) => ({
-      ...g,
-      items: [
-        ...g.items,
-        ...plan.hypotheticals
-          .filter((h) => h.groupId === g.id)
-          .map((h) => ({ ...h, kind: "hypothetical", counts: true, status: "hypothetical" })),
-      ],
-    })),
-  };
-}
-
-const isGraded = (item) => item.kind === "canvas" && item.status === "graded";
-const currentValue = (item) => (isGraded(item) ? item.realScore : null);
-function projectedValue(item) {
-  if (item.id in plan.overrides) return plan.overrides[item.id];
-  return isGraded(item) ? item.realScore : null;
-}
+const fullModel = () => withHypotheticals(model, plan.hypotheticals);
+const projectedValue = (item) => whatIfValue(plan.overrides, item);
 // Assignments a student can still affect: ungraded Canvas ones and hypotheticals.
 const isOpen = (item) => item.counts && !isGraded(item);
 
@@ -291,7 +254,7 @@ function renderCourseNotes() {
     notes.push({ kind: "info", text: "Some grades aren't posted yet. They're treated as ungraded until your instructor posts them." });
   }
   $("gc-course-notes").replaceChildren(
-    ...notes.map((n) => el("p", n.kind === "conflict" ? "notice-banner conflict" : "notice-banner", n.text))
+    ...notes.map((n) => el("p", n.kind === "conflict" ? "notice-banner conflict" : "notice-banner", n.hint ? `${n.text} ${n.hint}` : n.text))
   );
 }
 
