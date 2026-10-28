@@ -1,0 +1,79 @@
+/* Chrome action popups are limited to 800 × 600 CSS pixels. This stylesheet
+   belongs only to the toolbar popup; the full-page app shares sidepanel.css. */
+html.popup {
+  width: 520px;
+  height: 520px;
+  /* Chrome measures the document before choosing the popup viewport. Viewport
+     units or percentage root sizes here can lock it to its tiny initial size. */
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Once Chrome has sized the native popup, fit its actual viewport. Keep these
+   constraints off <html>, which supplies the initial intrinsic dimensions. */
+html.popup body {
+  width: 520px;
+  height: 520px;
+  max-width: 100vw;
+  max-height: 100vh;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.popup [hidden] { display: none !important; }
+.popup .topbar, .popup .tools, .popup #composer { flex-shrink: 0; }
+.popup .topbar { gap: 8px; }
+
+.popup-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.popup-content > .card { flex-shrink: 0; min-width: 0; }
+.popup #chat { flex: 1 0 auto; min-height: 180px; min-width: 0; overflow: visible; }
+.popup #course-list li { grid-template-columns: auto minmax(0, 1fr) auto; }
+.popup .course-link, .popup .hint, .popup .banner { overflow-wrap: anywhere; }
+.popup .msg, .popup .msg pre, .popup .msg table { min-width: 0; max-width: 100%; }
+.popup .course-suggest .code { white-space: normal; overflow-wrap: anywhere; }
+.popup #composer textarea { min-width: 0; }
+
+.popup-interface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+
+.intro-playing .popup-interface { opacity: 0; }
+.popup-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: block;
+  background: #000;
+  opacity: 1;
+  transition: opacity 320ms ease;
+}
+.popup-intro video { display: block; width: 100%; height: 100%; object-fit: contain; opacity: 0; }
+.popup-intro.is-playing video { opacity: 1; animation: intro-fade-in 240ms ease both; }
+@keyframes intro-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.popup-intro.is-leaving { opacity: 0; pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-interface, .popup-intro { transition: none; }
+  .popup-intro.is-playing video { animation: none; }
+}

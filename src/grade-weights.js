@@ -1,5 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildContextBlocks, friendlyError, CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL } from "./claude.js";
+import { normalizeScheme } from "./grade-scale.js";
+
+export const SYLLABUS_GRADING_VERSION = 2;
 
 // Reads how a course's syllabus grades the course: each component's share of the
 // final grade, its drop rules, and its date. The Grade Calculator runs this on its
@@ -10,6 +13,20 @@ const SCHEMA = {
   type: "object",
   properties: {
     found: { type: "boolean" },
+    letterGrades: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          min: { type: "number" },
+          inclusive: { type: "boolean" },
+          evidence: { type: "string" },
+        },
+        required: ["name", "min", "inclusive", "evidence"],
+        additionalProperties: false,
+      },
+    },
     components: {
       type: "array",
       items: {
@@ -28,7 +45,7 @@ const SCHEMA = {
       },
     },
   },
-  required: ["found", "components"],
+  required: ["found", "components", "letterGrades"],
   additionalProperties: false,
 };
 
@@ -42,7 +59,15 @@ For each component give:
 - dropLowest, dropHighest: how many lowest or highest scores the syllabus drops from this component (0 if it says nothing).
 - date: YYYY-MM-DD if the syllabus gives a date for this single item (work out the year from the course term and today's date), otherwise "".
 
-Set found to false, with an empty list, if the syllabus gives no grade breakdown or says the grade is based on total points. Use only what the documents say; never guess.`;
+Set found to false, with an empty components list, if the syllabus gives no grade breakdown or says the grade is based on total points.
+
+Independently, read the course's LETTER-GRADE CUTOFFS into letterGrades, even if found is false. Use exactly this course's letter labels, including A+, A, A-, etc., and preserve every decimal. Each entry must have:
+- name: the exact grade label.
+- min: the literal lower percentage boundary, without rounding or shifting it.
+- inclusive: true for "at least", ">=", "≥", "93 and above", or a range starting at 93; false for "above", "over", "greater than", or ">".
+- evidence: the short exact syllabus excerpt that establishes this grade and boundary.
+For example, "A+ above 93%" means {"name":"A+","min":93,"inclusive":false,"evidence":"A+ above 93%"}. It DOES NOT mean 94, and 93.01 qualifies. "A: 93–100" means min 93, inclusive true. "A-: 90–92.99" means min 90, inclusive true.
+Never substitute a standard 94/90/87 scale. Do not mistake assignment weights, GPA values (4.0), or other courses' rules for letter cutoffs. Only convert points to percentages if the final total points are explicitly known. If there are no stated percentage cutoffs or the scale is curved/discretionary, return an empty letterGrades array. Do not invent missing rows or a rounding policy. Use only what the documents say; never guess.`;
 
 // Changes when the course's syllabus text or files change (the Canvas assignment
 // summary is left out, since it changes with every sync).
@@ -52,7 +77,12 @@ export function syllabusSources(course) {
 
 export function syllabusFingerprint(course) {
   return syllabusSources(course)
-    .map((s) => `${s.title}:${s.kind === "pdf" ? s.data.length : s.text.length}`)
+    .map((s) => {
+      const text = s.kind === "pdf" ? s.data : s.text;
+      let hash = 2166136261;
+      for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+      return `${s.title}:${text.length}:${hash >>> 0}`;
+    })
     .join("|");
 }
 
@@ -93,6 +123,8 @@ export async function readSyllabusGrading({ apiKey, course, canvasGroups, model 
     return {
       found: result.found && result.components.length > 0,
       components: result.components,
+      letterGrades: normalizeScheme(result.letterGrades),
+      version: SYLLABUS_GRADING_VERSION,
       fingerprint: syllabusFingerprint(course),
       at: Date.now(),
     };

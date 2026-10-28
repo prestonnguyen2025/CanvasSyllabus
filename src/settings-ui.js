@@ -4,7 +4,7 @@ import { ensureHostPermission } from "./sync.js";
 import { applyTheme } from "./theme.js";
 import * as storage from "./storage.js";
 
-// The settings form, shared by the side panel and the full site (same element ids).
+// The settings form, shared by the popup and the full site (same element ids).
 
 const $ = (id) => document.getElementById(id);
 let onCoursesChanged = () => {};

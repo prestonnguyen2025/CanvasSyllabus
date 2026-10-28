@@ -95,7 +95,7 @@
       </div>
 
       <div id="gc-calc" class="calc" hidden>
-        <main class="groups-col">
+        <main class="groups-col" aria-label="Assignments" tabindex="0">
           <div id="gc-course-notes"></div>
           <p class="legend">
             <span class="pill real">🔒 From Canvas</span>
@@ -117,7 +117,7 @@
           </form>
         </main>
 
-        <aside class="results" aria-label="Results">
+        <aside class="results" aria-label="Grade breakdown and results" tabindex="0">
           <div class="card result-card weights-card">
             <h3>Grading breakdown <span id="gc-weights-source" class="pill open"></span></h3>
             <div id="gc-weights-switch" class="seg" role="group" aria-label="Use weights from" hidden>
@@ -164,6 +164,28 @@
             <label class="need-label">On <select id="gc-need-item"></select></label>
             <div id="gc-need-results"></div>
             <p id="gc-need-note" class="hint">Holds your other what-if scores as they are; blank assignments aren't counted.</p>
+          </div>
+
+          <div class="card result-card">
+            <h3>Letter grade cutoffs</h3>
+            <p id="gc-scale-source" class="hint"></p>
+            <table class="weights-table" aria-label="Course letter grade cutoffs">
+              <thead><tr><th scope="col">Grade</th><th scope="col">Minimum</th></tr></thead>
+              <tbody id="gc-scale-body"></tbody>
+            </table>
+            <p class="hint">Letters use unrounded totals. For example, &gt;93% includes 93.01%; ≥93% includes exactly 93%.</p>
+            <details id="gc-scale-editor">
+              <summary>Edit cutoffs for this course</summary>
+              <form id="gc-scale-form">
+                <div id="gc-scale-rows" class="scale-rows"></div>
+                <button id="gc-scale-add" type="button" class="ghost small">Add letter</button>
+                <div class="row scale-actions">
+                  <button type="submit" class="small">Save course cutoffs</button>
+                  <button id="gc-scale-reset" type="button" class="ghost small">Use detected cutoffs</button>
+                </div>
+                <p id="gc-scale-error" class="hint" role="status"></p>
+              </form>
+            </details>
           </div>
         </aside>
       </div>

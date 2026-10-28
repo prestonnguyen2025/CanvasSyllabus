@@ -21,7 +21,7 @@ const DEFAULTS = {
 // from the button-based syllabus weights that gradeSyllabus replaced.
 const REMOVED_KEYS = ["provider", "geminiKey", "gradeSyllabusWeights"];
 
-// Identifies this page's writes, so the side panel and the full site can tell
+// Identifies this page's writes, so the popup and the full site can tell
 // their own changes apart from each other's.
 const PAGE_ID = crypto.randomUUID();
 

@@ -3,7 +3,7 @@ import { newClaudeConversation, askClaude } from "./claude.js";
 import { renderMarkdown } from "./markdown.js";
 import { selectedCourses, visibleCourses } from "./storage.js";
 
-// The chat box, shared by the side panel and the full site. Both pages use the
+// The chat box, shared by the popup and the full site. Both pages use the
 // element ids chat, composer, question, send and new-chat.
 
 const $ = (id) => document.getElementById(id);

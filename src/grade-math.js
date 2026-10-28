@@ -13,30 +13,27 @@
 // A model is { weighted, groups: [{ id, weight, rules, items: [{ id, counts,
 // pointsPossible }] }] }; valueOf(item) gives the points to use, or null to skip it.
 
-// Canvas's default letter scale, used when the course's own scheme can't be read.
-export const DEFAULT_SCHEME = [
-  ["A", 94], ["A-", 90], ["B+", 87], ["B", 84], ["B-", 80], ["C+", 77],
-  ["C", 74], ["C-", 70], ["D+", 67], ["D", 64], ["D-", 61], ["F", 0],
-].map(([name, min]) => ({ name, min }));
-
 const sum = (values) => values.reduce((a, b) => a + b, 0);
 export const round2 = (x) => Math.round(x * 100) / 100;
 
-// scheme: [{ name, min }] with min as a percent, highest first.
-export function letterFor(percent, scheme) {
-  if (percent == null) return null;
-  return scheme.find((e) => percent >= e.min)?.name ?? scheme.at(-1)?.name ?? null;
+// Ignore floating-point noise at a boundary, without rounding grades to the
+// displayed two decimals. >93 and >=93 are different course requirements.
+export function meetsCutoff(percent, cutoff) {
+  if (percent == null || !Number.isFinite(percent)) return false;
+  const difference = percent - cutoff.min;
+  return cutoff.inclusive === false ? difference > 1e-10 : difference >= -1e-10;
 }
 
-// The lowest percent that earns each of A, B and C ("A" itself, else the lowest
-// grade starting with that letter).
+// scheme: [{ name, min, inclusive? }], highest first. An incomplete/unknown
+// scale cannot assign a letter below its lowest stated boundary.
+export function letterFor(percent, scheme) {
+  if (percent == null) return null;
+  return scheme.find((e) => meetsCutoff(percent, e))?.name ?? null;
+}
+
+// Preserve the actual course labels, including A+, A-, and pass/fail scales.
 export function targetsFor(scheme) {
-  return ["A", "B", "C"].flatMap((letter) => {
-    const exact = scheme.find((e) => e.name.toUpperCase() === letter);
-    const family = scheme.filter((e) => e.name.toUpperCase().startsWith(letter));
-    const entry = exact ?? family.at(-1);
-    return entry ? [{ name: letter, min: entry.min }] : [];
-  });
+  return scheme.filter((e) => e.min > 0 || e.inclusive === false);
 }
 
 // options.applyDrops: drop scores now, from the assignments scored so far, like Canvas does,
@@ -126,17 +123,22 @@ function keepByRatio(subs, keep, cannotDrop, best) {
 // The fewest points on `item` that bring the course grade to targetPercent,
 // holding every other assignment at valueOf. Searches up to 3x the item's points.
 export function scoreNeeded(model, valueOf, item, targetPercent, options = {}) {
-  const EPS = 1e-9; // floating-point slack, so 88 isn't reported as 88.01
-  const gradeWith = (x) => (computeGrade(model, (i) => (i.id === item.id ? x : valueOf(i)), options).exact ?? 0) + EPS;
-  const max = Math.max(item.pointsPossible || 0, 1) * 3;
-  if (gradeWith(0) >= targetPercent) return { status: "secured" };
-  if (gradeWith(max) < targetPercent) return { status: "unreachable" };
+  const cutoff = typeof targetPercent === "number" ? { min: targetPercent } : targetPercent;
+  const passes = (cents) => meetsCutoff(
+    computeGrade(model, (i) => (i.id === item.id ? cents / 100 : valueOf(i)), options).exact,
+    cutoff
+  );
+  // Search the hundredth-point scores the calculator actually accepts. Rounding
+  // a continuous answer at >93 back down to 93 would fail the strict cutoff.
+  const max = Math.floor(Math.max(item.pointsPossible || 0, 1) * 300);
+  if (passes(0)) return { status: "secured" };
+  if (!passes(max)) return { status: "unreachable" };
   let lo = 0;
   let hi = max;
-  for (let i = 0; i < 50; i++) {
-    const mid = (lo + hi) / 2;
-    if (gradeWith(mid) >= targetPercent) hi = mid;
-    else lo = mid;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (passes(mid)) hi = mid;
+    else lo = mid + 1;
   }
-  return { status: "needed", points: Math.ceil(hi * 100 - 1e-6) / 100 };
+  return { status: "needed", points: hi / 100 };
 }

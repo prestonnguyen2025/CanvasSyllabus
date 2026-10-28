@@ -1,4 +1,5 @@
 import { createChat } from "./chat-ui.js";
+import { animateDetails } from "./disclosure.js";
 import { hasSyllabus } from "./prompt.js";
 import { mountSettings, fillSettings, renderCourseVisibility } from "./settings-ui.js";
 import { syncFromCanvas, openSimpleSyllabus, addSyllabusFile } from "./sync.js";
@@ -28,12 +29,13 @@ mountSettings(state, {
 if (!state.apiKey) $("settings").hidden = false;
 // The course list starts collapsed, except before the first sync so the Sync button is visible.
 if (!state.courses.length) $("courses-panel").open = true;
+animateDetails($("courses-panel"), $("courses-body"));
 
 $("toggle-settings").addEventListener("click", () => {
   $("settings").hidden = !$("settings").hidden;
 });
 
-// Opens a full-page tool in a tab, then closes the side panel since the tab replaces it.
+// Opens a full-page tool in a tab, then closes the toolbar popup.
 async function openPage(page) {
   await chrome.tabs.create({ url: chrome.runtime.getURL(page) });
   window.close();

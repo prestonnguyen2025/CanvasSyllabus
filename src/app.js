@@ -1,5 +1,5 @@
 // The full site: a tab-sized page inside the extension (app.html). It shares
-// storage, Canvas access and the chat with the side panel, and has room for
+// storage, Canvas access and the chat with the popup, and has room for
 // views that don't fit there. Add a view by adding a <section id="view-NAME">,
 // a nav link to #NAME, and its name to VIEWS.
 
@@ -36,13 +36,65 @@ function el(tag, className, text) {
 
 // ---------- Navigation ----------
 
-function showView() {
+let activeView = null;
+let viewAnimation = null;
+let navigationId = 0;
+
+function activateView(view) {
+  for (const v of VIEWS) {
+    const page = $(`view-${v}`);
+    page.hidden = v !== view;
+    page.inert = v !== view;
+  }
+  activeView = view;
+  if (view === "chat") $("question").focus({ preventScroll: true });
+  if (view === "grades") showGradeCalculator(state);
+}
+
+async function showView() {
   const name = location.hash.slice(1);
   const view = VIEWS.includes(name) ? name : "overview";
-  for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
-  for (const a of document.querySelectorAll(".nav a")) a.classList.toggle("active", a.hash === `#${view}`);
-  if (view === "chat") $("question").focus();
-  if (view === "grades") showGradeCalculator(state);
+  const mine = ++navigationId;
+  const previous = activeView ? $(`view-${activeView}`) : null;
+  // Read the current frame before canceling, so rapid navigation can interrupt
+  // an incoming page smoothly instead of restarting at full opacity.
+  const from = previous ? getComputedStyle(previous) : null;
+  const opacity = from?.opacity ?? "1";
+  const transform = from?.transform ?? "none";
+  viewAnimation?.cancel();
+  viewAnimation = null;
+
+  for (const a of document.querySelectorAll(".nav a")) {
+    const selected = a.hash === `#${view}`;
+    a.classList.toggle("active", selected);
+    if (selected) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  }
+
+  if (!previous || activeView === view || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    activateView(view);
+    return;
+  }
+
+  previous.inert = true;
+  const leaving = previous.animate([
+    { opacity, transform },
+    { opacity: 0, transform: "translateY(-4px)" },
+  ], { duration: 90, easing: "ease-out", fill: "forwards" });
+  viewAnimation = leaving;
+  try { await leaving.finished; } catch { return; }
+  if (mine !== navigationId) return;
+
+  // Keep the existing page elements and scroll positions; only visibility changes.
+  activateView(view);
+  leaving.cancel();
+  const entering = $(`view-${view}`).animate([
+    { opacity: 0, transform: "translateY(8px)" },
+    { opacity: 1, transform: "none" },
+  ], { duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+  viewAnimation = entering;
+  try { await entering.finished; } catch { /* A newer navigation takes over. */ }
+  if (mine === navigationId) viewAnimation = null;
 }
 
 window.addEventListener("hashchange", showView);
@@ -349,7 +401,7 @@ function renderChatScope() {
     : "";
 }
 
-// ---------- Live updates from the side panel and background ----------
+// ---------- Live updates from the popup and background ----------
 
 storage.onExternalChange(async (changes) => {
   Object.assign(state, await storage.load());
@@ -357,7 +409,7 @@ storage.onExternalChange(async (changes) => {
   renderAll();
   if (changes.hiddenIds || changes.canvasUrl) reloadGradeCalculator();
   if (changes.courses || changes.selectedIds || changes.hiddenIds || changes.claudeModel) {
-    chat.reset("Your courses or settings changed in the side panel — started a new chat.");
+    chat.reset("Your courses or settings changed in the popup — started a new chat.");
   }
 });
 

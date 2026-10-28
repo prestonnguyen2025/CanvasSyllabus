@@ -1,14 +1,16 @@
 // The Grade Calculator tab of the full site (app.html#grades). Loads the student's
 // grades from Canvas with their logged-in session, then lets them try what-if scores.
-// Nothing is sent anywhere but the student's own Canvas site; what-if scores
-// are saved in chrome.storage on this computer.
+// Grades come from the student's Canvas site; Anthropic reads the syllabus's
+// grading rules. What-if scores are saved in chrome.storage on this computer.
 
 import { shortCourseName } from "./autocomplete.js";
+import { setDisclosureExpanded } from "./disclosure.js";
 import { CanvasClient } from "./canvas.js";
 import { listGradeCourses, loadCourseGrades } from "./grade-data.js";
 import { computeGrade, letterFor, round2, scoreNeeded, targetsFor } from "./grade-math.js";
+import { formatCutoff, normalizeScheme, resolveGradeScale } from "./grade-scale.js";
 import { applySyllabus, dropText, formatDay } from "./grade-syllabus.js";
-import { readSyllabusGrading, syllabusFingerprint, syllabusSources } from "./grade-weights.js";
+import { readSyllabusGrading, syllabusFingerprint, syllabusSources, SYLLABUS_GRADING_VERSION } from "./grade-weights.js";
 import * as storage from "./storage.js";
 
 const $ = (id) => document.getElementById(id);
@@ -25,6 +27,9 @@ let syllabusData = null; // what was read from the syllabus, or null when there'
 let loadNotes = []; // notices from loading that don't depend on which weights are shown
 let plan = null; // { overrides: { itemId: points }, hypotheticals: [{ id, name, groupId, pointsPossible }], applyDrops }
 const rows = new Map(); // item id -> { row, pct, slider, number, clear }
+// Kept only in this page's memory: dismissed notices return on a page reload,
+// but not on recalculation, course changes, or the calculator's Refresh button.
+const dismissedNotices = new Set();
 
 const STATUS_LABELS = {
   graded: "From Canvas",
@@ -145,11 +150,11 @@ async function loadSyllabus(base, name, force) {
       ? { syllabus: saved, problem: null }
       : { syllabus: null, problem: "This course has no synced syllabus text, so Canvas's weights are used. Sync your courses or add a syllabus file on the Courses page." };
   }
-  if (saved && !force && saved.fingerprint === syllabusFingerprint(course)) return { syllabus: saved, problem: null };
+  if (saved && !force && saved.version === SYLLABUS_GRADING_VERSION && saved.fingerprint === syllabusFingerprint(course)) return { syllabus: saved, problem: null };
   if (!state.apiKey) {
     return {
       syllabus: saved,
-      problem: saved ? null : "Add your Anthropic API key in Settings to read grade weights from the syllabus. Canvas's weights are used until then.",
+      problem: saved ? null : "Add your Anthropic API key in Settings to read weights and letter cutoffs from the syllabus. Canvas's grading information is used when available.",
     };
   }
   showStatus("loading", `Reading the syllabus for ${name}…`, "This takes a few seconds, and only the first time.");
@@ -187,7 +192,7 @@ async function loadCourse(courseId, { force = false } = {}) {
   if (mine !== loadId) return;
 
   baseModel = base;
-  syllabusData = syllabus?.found ? syllabus : null;
+  syllabusData = syllabus;
   loadNotes = [];
   if (syllabus && !syllabus.found) {
     loadNotes.push({ kind: "info", text: "The syllabus doesn't list a grading breakdown, so Canvas's weights are used." });
@@ -200,6 +205,8 @@ async function loadCourse(courseId, { force = false } = {}) {
     hypotheticals: [...(saved?.hypotheticals ?? [])],
     applyDrops: Boolean(saved?.applyDrops),
     weightSource: saved?.weightSource ?? "syllabus",
+    letterScheme: saved?.letterScheme ?? null,
+    collapsedGroupIds: [...(saved?.collapsedGroupIds ?? [])],
   };
   // Forget what-ifs for groups that no longer exist.
   plan.hypotheticals = plan.hypotheticals.filter((h) => base.groups.some((g) => g.id === h.groupId));
@@ -214,14 +221,16 @@ async function loadCourse(courseId, { force = false } = {}) {
   $("gc-mini-results").hidden = false;
   renderCourseNotes();
   renderWeightsTable();
+  renderLetterScale();
   renderAll();
 }
 
 // Builds the model from Canvas's weights or the syllabus's, whichever the student has picked.
 function applyWeights() {
   const applied = applySyllabus(baseModel, syllabusData && plan.weightSource !== "canvas" ? syllabusData : null);
-  model = applied.model;
-  view = { table: applied.table, notices: [...loadNotes, ...applied.notices] };
+  const letters = resolveGradeScale(baseModel, syllabusData, plan.letterScheme);
+  model = { ...applied.model, scheme: letters.scheme, schemeSource: letters.schemeSource };
+  view = { table: applied.table, notices: [...loadNotes, ...applied.notices, ...letters.notices] };
 }
 
 $("gc-weights-switch").addEventListener("click", (e) => {
@@ -274,8 +283,10 @@ const isOpen = (item) => item.counts && !isGraded(item);
 let saveTimer = 0;
 function savePlan() {
   clearTimeout(saveTimer);
+  const courseId = model.id;
+  const coursePlan = plan;
   saveTimer = setTimeout(() => {
-    state.gradeWhatIfs = { ...state.gradeWhatIfs, [model.id]: plan };
+    state.gradeWhatIfs = { ...state.gradeWhatIfs, [courseId]: coursePlan };
     storage.save({ gradeWhatIfs: state.gradeWhatIfs });
   }, 300);
 }
@@ -291,7 +302,38 @@ function renderCourseNotes() {
     notes.push({ kind: "info", text: "Some grades aren't posted yet. They're treated as ungraded until your instructor posts them." });
   }
   $("gc-course-notes").replaceChildren(
-    ...notes.map((n) => el("p", n.kind === "conflict" ? "notice-banner conflict" : "notice-banner", n.text))
+    ...notes.flatMap((n) => {
+      const key = JSON.stringify([model.id, n.text]);
+      if (dismissedNotices.has(key)) return [];
+      const banner = el("div", n.kind === "conflict" ? "notice-banner conflict" : "notice-banner");
+      const dismiss = button("×", () => {
+        dismissedNotices.add(key);
+        dismiss.disabled = true;
+        banner.inert = true;
+        if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          banner.remove();
+          return;
+        }
+        const style = getComputedStyle(banner);
+        banner.style.overflow = "hidden";
+        const animation = banner.animate([
+          {
+            opacity: 1, height: `${banner.getBoundingClientRect().height}px`,
+            paddingTop: style.paddingTop, paddingBottom: style.paddingBottom,
+            marginBottom: style.marginBottom, transform: "none",
+          },
+          {
+            opacity: 0, height: "0px", paddingTop: "0px", paddingBottom: "0px",
+            marginBottom: "0px", transform: "translateY(-4px)",
+          },
+        ], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" });
+        animation.finished.then(() => banner.remove(), () => banner.remove());
+      }, "notice-dismiss");
+      dismiss.setAttribute("aria-label", "Dismiss notice until page reload");
+      dismiss.title = "Dismiss until page reload";
+      banner.append(el("span", "notice-text", n.text), dismiss);
+      return [banner];
+    })
   );
 }
 
@@ -301,7 +343,7 @@ function renderWeightsTable() {
   $("gc-weights-source").textContent = table.source === "syllabus" ? "From syllabus" : "From Canvas";
   // The switch only makes sense when the syllabus gave something to switch to.
   const useSyllabus = table.source === "syllabus";
-  $("gc-weights-switch").hidden = !syllabusData;
+  $("gc-weights-switch").hidden = !syllabusData?.found;
   for (const b of $("gc-weights-switch").querySelectorAll("button")) {
     b.setAttribute("aria-pressed", String(b.dataset.source === (useSyllabus ? "syllabus" : "canvas")));
   }
@@ -318,6 +360,85 @@ function renderWeightsTable() {
   $("gc-weights-total").textContent = table.total == null ? "By total points" : `${table.total}%`;
 }
 
+function addScaleRow(entry = {}) {
+  const row = el("div", "scale-row");
+  const name = el("input");
+  name.className = "scale-name";
+  name.value = entry.name ?? "";
+  name.placeholder = "A+";
+  name.required = true;
+  name.setAttribute("aria-label", "Grade label");
+  const rule = el("select", "scale-rule");
+  rule.append(new Option("≥", "inclusive"), new Option(">", "exclusive"));
+  rule.value = entry.inclusive === false ? "exclusive" : "inclusive";
+  rule.setAttribute("aria-label", "Minimum includes or excludes the boundary");
+  const min = el("input", "scale-min");
+  min.type = "number";
+  min.min = "0";
+  min.max = "100";
+  min.step = "any";
+  min.required = true;
+  min.placeholder = "93";
+  min.value = entry.min ?? "";
+  min.setAttribute("aria-label", "Minimum percentage");
+  const remove = button("×", () => row.remove(), "ghost small");
+  remove.setAttribute("aria-label", "Remove cutoff");
+  row.append(name, rule, min, remove);
+  $("gc-scale-rows").append(row);
+}
+
+function renderLetterScale() {
+  $("gc-scale-source").textContent = {
+    syllabus: "From this course's syllabus",
+    course: "From this course's Canvas grading scheme",
+    custom: "Your saved cutoffs for this course",
+    unknown: "No course-specific scale found. Enter the syllabus cutoffs to calculate letters and targets.",
+  }[model.schemeSource];
+  $("gc-scale-body").replaceChildren(...model.scheme.map((entry) => {
+    const row = el("tr");
+    const name = el("td", "w-name", entry.name);
+    if (entry.evidence) name.title = entry.evidence;
+    row.append(name, el("td", "w-pct", formatCutoff(entry)));
+    return row;
+  }));
+  $("gc-scale-rows").replaceChildren();
+  if (model.scheme.length) model.scheme.forEach(addScaleRow);
+  else addScaleRow();
+  $("gc-scale-reset").disabled = !plan.letterScheme;
+  $("gc-scale-error").textContent = "";
+}
+
+$("gc-scale-add").addEventListener("click", () => addScaleRow());
+$("gc-scale-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const entries = [...$("gc-scale-rows").children].map((row) => ({
+    name: row.querySelector(".scale-name").value,
+    min: row.querySelector(".scale-min").value === "" ? NaN : Number(row.querySelector(".scale-min").value),
+    inclusive: row.querySelector(".scale-rule").value === "inclusive",
+  }));
+  const scheme = normalizeScheme(entries);
+  if (!scheme.length) {
+    $("gc-scale-error").textContent = "Enter unique grade labels and cutoffs from 0 to 100. Two rows cannot have the same boundary and rule.";
+    return;
+  }
+  plan.letterScheme = scheme;
+  savePlan();
+  applyWeights();
+  renderCourseNotes();
+  renderLetterScale();
+  $("gc-scale-editor").open = false;
+  refresh();
+});
+
+$("gc-scale-reset").addEventListener("click", () => {
+  plan.letterScheme = null;
+  savePlan();
+  applyWeights();
+  renderCourseNotes();
+  renderLetterScale();
+  refresh();
+});
+
 function renderAll() {
   const m = fullModel();
   rows.clear();
@@ -332,9 +453,32 @@ function renderAll() {
 
 function renderGroup(group, weighted) {
   const card = el("section", "card group");
+  const body = el("div", "group-body");
+  body.id = `group-body-${group.id}`;
+  body.hidden = plan.collapsedGroupIds.includes(group.id);
+  body.inert = body.hidden;
+  card.classList.toggle("collapsed", body.hidden);
   const head = el("div", "group-head");
   const title = el("div");
-  title.append(el("h2", null, group.name));
+  const heading = el("h2");
+  const toggle = button("", () => {
+    const expanded = plan.collapsedGroupIds.includes(group.id);
+    const collapsed = new Set(plan.collapsedGroupIds);
+    if (expanded) collapsed.delete(group.id);
+    else collapsed.add(group.id);
+    plan.collapsedGroupIds = [...collapsed];
+    toggle.setAttribute("aria-expanded", String(expanded));
+    card.classList.toggle("collapsed", !expanded);
+    setDisclosureExpanded(body, expanded, toggle);
+    savePlan();
+  }, "group-toggle");
+  const arrow = el("span", "group-arrow", "▾");
+  arrow.setAttribute("aria-hidden", "true");
+  toggle.append(arrow, el("span", null, group.name));
+  toggle.setAttribute("aria-expanded", String(!body.hidden));
+  toggle.setAttribute("aria-controls", body.id);
+  heading.append(toggle);
+  title.append(heading);
   const facts = [];
   if (weighted) facts.push(`${round2(group.weight)}% of grade`);
   if (dropText(group.rules)) facts.push(dropText(group.rules));
@@ -348,8 +492,9 @@ function renderGroup(group, weighted) {
   head.append(title, summary);
   card.append(head);
 
-  if (!group.items.length) card.append(el("p", "hint empty-group", "No assignments in this group yet."));
-  for (const item of group.items) card.append(renderRow(item));
+  if (!group.items.length) body.append(el("p", "hint empty-group", "No assignments in this group yet."));
+  for (const item of group.items) body.append(renderRow(item));
+  card.append(body);
   return card;
 }
 
@@ -478,8 +623,8 @@ function refresh() {
   const options = { applyDrops: plan.applyDrops };
   const current = computeGrade(m, currentValue, options);
   const projected = computeGrade(m, projectedValue, options);
-  const currentLetter = letterFor(current.percent, model.scheme);
-  const projectedLetter = letterFor(projected.percent, model.scheme);
+  const currentLetter = letterFor(current.exact, model.scheme);
+  const projectedLetter = letterFor(projected.exact, model.scheme);
 
   $("gc-current-pct").textContent = fmtPct(current.percent);
   $("gc-current-letter").textContent = currentLetter ?? "";
@@ -510,7 +655,12 @@ function refresh() {
     : "Drops currently wait until every assignment in a group has a score.";
   $("gc-grading-mode").textContent = [
     m.weighted ? (view.table.source === "syllabus" ? "Weighted by the syllabus." : "Weighted by assignment group.") : "Based on total points.",
-    model.schemeSource === "course" ? "Letters use this course's grading scheme." : "Letters use a standard scale (A = 94%+), since the course's scheme isn't visible.",
+    {
+      syllabus: "Letter cutoffs come from this course's syllabus.",
+      course: "Letter cutoffs come from this course's Canvas grading scheme.",
+      custom: "Letters use the cutoffs you saved for this course.",
+      unknown: "Letter cutoffs are unknown. Refresh to read the syllabus or enter this course's cutoffs below.",
+    }[model.schemeSource],
   ].join(" ");
 
   for (const g of projected.groups) {
@@ -590,6 +740,10 @@ $("gc-need-item").addEventListener("change", () => renderNeed(fullModel()));
 
 function renderNeed(m) {
   const out = $("gc-need-results");
+  if (!model.scheme.length) {
+    out.replaceChildren(el("p", "hint", "A course-specific letter scale is needed. Refresh to read the syllabus, or enter this course's letter cutoffs below."));
+    return;
+  }
   const item = m.groups.flatMap((g) => g.items).find((i) => i.id === $("gc-need-item").value);
   if (!item) {
     out.replaceChildren(el("p", "hint", "Everything is graded. Add a hypothetical assignment (like your final) to see what you'd need on it."));
@@ -597,9 +751,9 @@ function renderNeed(m) {
   }
   const list = el("ul", "need-list");
   for (const target of targetsFor(model.scheme)) {
-    const result = scoreNeeded(m, projectedValue, item, target.min, { applyDrops: plan.applyDrops });
+    const result = scoreNeeded(m, projectedValue, item, target, { applyDrops: plan.applyDrops });
     const li = el("li");
-    li.append(el("span", "need-letter", `${target.name} (${target.min}%+)`));
+    li.append(el("span", "need-letter", `${target.name} (${formatCutoff(target)})`));
     let text;
     let cls = "";
     if (result.status === "secured") {

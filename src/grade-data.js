@@ -1,5 +1,5 @@
 import { CanvasError } from "./canvas.js";
-import { DEFAULT_SCHEME } from "./grade-math.js";
+import { normalizeScheme } from "./grade-scale.js";
 
 // Reads a student's grades from Canvas (with their logged-in session) and turns
 // them into the model grade-math.js works on.
@@ -39,8 +39,8 @@ export async function loadCourseGrades(client, courseId) {
     hideTotals: Boolean(course.hide_final_grades),
     canvasScore: enrollment?.computed_current_score ?? null,
     canvasGrade: enrollment?.computed_current_grade ?? null,
-    scheme: scheme ?? DEFAULT_SCHEME,
-    schemeSource: scheme ? "course" : "default",
+    scheme: scheme ?? [],
+    schemeSource: scheme ? "course" : "unknown",
     groups: [...groups]
       .sort((a, b) => a.position - b.position)
       .map((g) => ({
@@ -64,19 +64,31 @@ async function loadScheme(client, course) {
   let standard = null;
   try {
     standard = await client.get(`/api/v1/courses/${course.id}/grading_standards/${id}`);
-  } catch {
+  } catch { /* A student may only be allowed to list visible standards. */ }
+  if (!standard?.grading_scheme?.length) {
     try {
       const all = await client.getAll(`/api/v1/courses/${course.id}/grading_standards?per_page=50`);
       standard = all.find((s) => String(s.id) === String(id)) ?? null;
+    } catch { /* Try the owning account below. */ }
+  }
+  // An account-owned standard may not be readable through the course URL.
+  if (!standard?.grading_scheme?.length && course.account_id) {
+    try {
+      standard = await client.get(`/api/v1/accounts/${course.account_id}/grading_standards/${id}`);
     } catch {
       return null; // students often can't read grading standards
     }
   }
   const entries = standard?.grading_scheme;
   if (!entries?.length) return null;
-  return entries
-    .map((e) => ({ name: e.name, min: Math.round(e.value * 10000) / 100 }))
-    .sort((a, b) => b.min - a.min);
+  const scheme = normalizeScheme(entries.map((e) => ({
+    name: e.name,
+    // Canvas values are normalized fractions; retain decimal boundaries rather
+    // than rounding them to hundredths or whole percentages.
+    min: typeof e.value === "number" ? Number((e.value * 100).toPrecision(12)) : NaN,
+    inclusive: true,
+  })));
+  return scheme.length ? scheme : null;
 }
 
 // status: graded | pending (needs review) | hidden (graded, not posted yet) |

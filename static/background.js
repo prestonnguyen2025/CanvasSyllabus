@@ -1,11 +1,3 @@
-// Clicking the toolbar icon opens the side panel.
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-});
-chrome.runtime.onStartup.addListener(() => {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-});
-
 // Simple Syllabus pages send their text here when you click "Save to Syllabus Chat".
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type !== "simple-syllabus-capture") return;
@@ -22,7 +14,7 @@ async function saveCapture({ title, url, text }) {
   const candidates = courses.filter((c) => !hiddenIds.includes(c.id));
   const source = { kind: "text", title: `Simple Syllabus: ${title}`, text, url, manual: true, simpleSyllabus: true };
 
-  // Prefer the course whose "Open Simple Syllabus" link was just clicked in the side panel.
+  // Prefer the course whose "Open Simple Syllabus" link was just clicked in the popup.
   let course = null;
   if (pendingSimpleSyllabus && Date.now() - pendingSimpleSyllabus.at < PENDING_TTL_MS) {
     course = candidates.find((c) => c.id === pendingSimpleSyllabus.courseId);
@@ -31,7 +23,7 @@ async function saveCapture({ title, url, text }) {
 
   if (!course) {
     await chrome.storage.local.set({ unassignedCapture: source, lastCaptureAt: Date.now() });
-    return { message: "Saved — pick its course in the Syllabus Chat panel" };
+    return { message: "Saved — pick its course in the Syllabus Chat popup" };
   }
   course.sources = [...course.sources.filter((s) => !s.simpleSyllabus), source];
   await chrome.storage.local.set({ courses, pendingSimpleSyllabus: null, lastCaptureAt: Date.now() });
